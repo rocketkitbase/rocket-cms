@@ -37,10 +37,36 @@ export function installAutomaticEditing(options = {}) {
     existing.forEach((item) => item.remove());
   }
   const carouselRegion = "__rcms_auto__carousel_slides";
+  const carouselSettingsRegion = "__rcms_auto__carousel_settings";
   let carouselOrder = [];
   let activeSlideId = "";
   let carouselTimer;
   let carouselTouchStart;
+  let carouselDrag;
+  const clampPosition = (value) => Math.max(0, Math.min(100, value));
+  function positionSlideButton(link, position) {
+    link.style.left = (Number.isFinite(position.x) ? clampPosition(position.x) : 50) + "%";
+    link.style.top = (Number.isFinite(position.y) ? clampPosition(position.y) : 76) + "%";
+  }
+  function syncSlideButton(slide, id, button) {
+    let link = slide.querySelector("[data-rocket-slide-button]");
+    let url;
+    try { if (button?.url?.trim()) url = new URL(button.url, document.baseURI); } catch {}
+    if (!url || !["https:", "http:"].includes(url.protocol) || !button?.text?.trim()) {
+      link?.remove();
+      return;
+    }
+    if (!link) {
+      link = document.createElement("a");
+      link.setAttribute("data-rocket-slide-button", id);
+      link.style.cssText = "position:absolute;z-index:2;transform:translate(-50%,-50%);max-width:90%;padding:12px 20px;border-radius:10px;background:#ffce16;color:#171023;text-decoration:none;text-align:center;font:700 16px system-ui;touch-action:none";
+      slide.appendChild(link);
+    }
+    link.href = url.href;
+    link.style.cursor = editing ? "grab" : "pointer";
+    if (link.textContent !== button.text) link.textContent = button.text;
+    if (carouselDrag?.link !== link) positionSlideButton(link, button);
+  }
   function showCarouselSlide(id) {
     activeSlideId = id;
     carouselOrder.forEach(({ slide, dot, id: slideId }) => {
@@ -63,6 +89,7 @@ export function installAutomaticEditing(options = {}) {
     const dots = carousel?.querySelector(".home-carousel__dots");
     if (!slides || !dots) return;
     const additions = Array.isArray(values[carouselRegion]) ? values[carouselRegion] : [];
+    const settings = values[carouselSettingsRegion] || {};
     const baseSlides = Array.from(slides.children).filter((slide) => !slide.hasAttribute("data-rocket-slide"));
     const baseDots = Array.from(dots.children).filter((dot) => !dot.hasAttribute("data-rocket-slide"));
     const order = baseSlides.flatMap((slide, index) => baseDots[index] ? [{ id: "original-" + index, slide, dot: baseDots[index] }] : []);
@@ -99,7 +126,17 @@ export function installAutomaticEditing(options = {}) {
     carousel.querySelectorAll("[data-rocket-slide]").forEach((element) => {
       if (!wanted.has(element.getAttribute("data-rocket-slide"))) element.remove();
     });
-    if (!wanted.size && !editing) {
+    const visibleOrder = order.filter(({ id, slide, dot }) => {
+      const image = slide.querySelector("img");
+      const regionId = image?.getAttribute("data-rcms-region") || (image ? prefix + encodeURIComponent(selector(image)) : "");
+      const override = values[regionId];
+      const hidden = settings[id]?.deleted === true || override?.src === "" || override === "";
+      slide.hidden = hidden;
+      dot.hidden = hidden;
+      syncSlideButton(slide, id, hidden ? null : settings[id]?.button);
+      return !hidden;
+    });
+    if (!wanted.size && !Object.keys(settings).length && visibleOrder.length === order.length && !editing) {
       carouselOrder.forEach(({ slide, dot }) => {
         slide.style.removeProperty("opacity");
         slide.style.removeProperty("visibility");
@@ -116,13 +153,13 @@ export function installAutomaticEditing(options = {}) {
       carouselTimer = undefined;
       return;
     }
-    carouselOrder = order;
-    order.forEach(({ id, dot }, index) => {
+    carouselOrder = visibleOrder;
+    visibleOrder.forEach(({ id, dot }, index) => {
       dot.style.order = String(index);
       dot.setAttribute("data-rocket-dot", id);
       dot.setAttribute("aria-label", "Show slide " + (index + 1));
     });
-    showCarouselSlide(order.some(({ id }) => id === activeSlideId) ? activeSlideId : order[0]?.id);
+    showCarouselSlide(visibleOrder.some(({ id }) => id === activeSlideId) ? activeSlideId : visibleOrder[0]?.id);
     if (editing && carouselTimer) { window.clearInterval(carouselTimer); carouselTimer = undefined; }
     if (!editing && !carouselTimer && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       carouselTimer = window.setInterval(() => advanceCarousel(1), 4000);
@@ -201,7 +238,7 @@ export function installAutomaticEditing(options = {}) {
       });
     });
     document.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,label,a,button,img,section,header,footer,main,span,strong,b,em,i,small").forEach((element) => {
-      if (element.closest("[data-rcms-node],script,style,svg,form,input,textarea,select,[contenteditable=true]")) return;
+      if (element.closest("[data-rocket-slide-button],[data-rcms-node],script,style,svg,form,input,textarea,select,[contenteditable=true]")) return;
       const existing = element.closest("[data-rcms-region]");
       if (existing && !existing.getAttribute("data-rcms-region").startsWith(prefix)) return;
       if (!element.matches("img,section,header,footer,main,a,button") && (!element.textContent.trim() || element.querySelector("h1,h2,h3,h4,p,li,a,button,img"))) return;
@@ -234,11 +271,16 @@ export function installAutomaticEditing(options = {}) {
     if (message.type === "rcms/v1/exit-edit-mode") { editing = false; document.documentElement.setAttribute("data-rcms-auto-editing", "false"); schedule(); }
     if (message.type === "rcms/v1/field-update" && message.payload?.regionId?.startsWith(prefix)) {
       values[message.payload.regionId] = message.payload.value;
-      if (message.payload.regionId === carouselRegion) { schedule(); return; }
+      if (message.payload.regionId === carouselRegion || message.payload.regionId === carouselSettingsRegion) { schedule(); return; }
       apply(message.payload.regionId, message.payload.value);
+      if (message.payload.regionId.startsWith(prefix)) schedule();
     }
   });
   document.addEventListener("click", (event) => {
+    if (editing && event.target.closest?.("[data-rocket-slide-button]")) {
+      event.preventDefault(); event.stopImmediatePropagation();
+      return;
+    }
     const course = event.target.closest?.("[data-rocket-preview-course]");
     if (options.preview && course) {
       event.preventDefault();
@@ -261,6 +303,38 @@ export function installAutomaticEditing(options = {}) {
     const carouselSlide = type === "image" && carouselOrder.find(({ slide }) => slide.contains(element));
     send("rcms/v1/region-selected", { regionId: id, type, label: element.getAttribute("data-rcms-label"), value: values[id] ?? valueOf(element, type), ...(carouselSlide ? { carouselSlideId: carouselSlide.id } : {}), additive: event.ctrlKey || event.metaKey || event.shiftKey });
   }, true);
+  document.addEventListener("pointerdown", (event) => {
+    const link = editing && event.target.closest?.("[data-rocket-slide-button]");
+    if (!link || event.button !== 0) return;
+    event.preventDefault();
+    const slide = link.parentElement.getBoundingClientRect();
+    const button = link.getBoundingClientRect();
+    if (!slide.width || !slide.height) return;
+    carouselDrag = {
+      link, slide, pointerId: event.pointerId,
+      offsetX: event.clientX - button.left - button.width / 2,
+      offsetY: event.clientY - button.top - button.height / 2
+    };
+    link.setPointerCapture?.(event.pointerId);
+  });
+  document.addEventListener("pointermove", (event) => {
+    if (!carouselDrag || carouselDrag.pointerId !== event.pointerId) return;
+    const { link, slide, offsetX, offsetY } = carouselDrag;
+    carouselDrag.position = {
+      x: clampPosition((event.clientX - slide.left - offsetX) / slide.width * 100),
+      y: clampPosition((event.clientY - slide.top - offsetY) / slide.height * 100)
+    };
+    positionSlideButton(link, carouselDrag.position);
+  });
+  document.addEventListener("pointerup", (event) => {
+    if (!carouselDrag || carouselDrag.pointerId !== event.pointerId) return;
+    const { link, position } = carouselDrag;
+    carouselDrag = undefined;
+    if (position) send("rcms/v1/carousel-button-position", { slideId: link.getAttribute("data-rocket-slide-button"), ...position });
+  });
+  document.addEventListener("pointercancel", (event) => {
+    if (carouselDrag?.pointerId === event.pointerId) { carouselDrag = undefined; schedule(); }
+  });
   document.addEventListener("touchstart", (event) => {
     if (carouselOrder.length && event.target.closest?.(".home-carousel__slides")) {
       carouselTouchStart = event.touches[0]?.clientX;

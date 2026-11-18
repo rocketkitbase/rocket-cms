@@ -266,7 +266,7 @@ function normalizedLiveOrigin(domain) {
   return url.origin;
 }
 
-export async function verifyExistingLiveRouting(website, { requireAutomaticEditing = false, requireCourseCopy = false, requireCarouselSlides = false } = {}) {
+export async function verifyExistingLiveRouting(website, { requireAutomaticEditing = false, requireCourseCopy = false, requireCarouselSlides = false, requireCarouselSettings = false } = {}) {
   const origin = normalizedLiveOrigin(website?.domain);
   const verificationId = Date.now().toString(36);
   const nestedRoute = new URL(`/reactcms-route-check-${verificationId}`, origin);
@@ -318,6 +318,9 @@ export async function verifyExistingLiveRouting(website, { requireAutomaticEditi
   }
   if (requireCarouselSlides && !bootstrapSource.includes("__rcms_auto__carousel_slides")) {
     throw new Error("Run Set Up Live Publishing in Rocket to enable added carousel slides on this website.");
+  }
+  if (requireCarouselSettings && !bootstrapSource.includes("__rcms_auto__carousel_settings")) {
+    throw new Error("Run Set Up Live Publishing in Rocket to enable slide removal and banner buttons.");
   }
 
   return {
@@ -795,7 +798,7 @@ async function start() {
     const observer = new MutationObserver(() => window.requestAnimationFrame(applyRuntimeTypography));
     if (document.body) observer.observe(document.body, { childList: true, subtree: true });
   }
-  if (window.self === window.top && page) {
+  if (window.self === window.top && websiteId && databaseUrl) {
     publishedSignature = pageKey + ":" + JSON.stringify(page?.regions || {});
     await hydratePublishedPage(pageKey, page);
     watchPublishedPage();

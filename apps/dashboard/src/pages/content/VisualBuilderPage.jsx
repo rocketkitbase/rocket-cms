@@ -101,6 +101,7 @@ const AIWorkspace = lazy(() => import("../../components/content/AIWorkspace"));
 const VisualPageSettingsModal = lazy(() => import("../../components/content/VisualPageSettingsModal"));
 const LIVE_FRAME_LOAD_TIMEOUT_MS = 15000;
 const CAROUSEL_SLIDES_REGION = "__rcms_auto__carousel_slides";
+const CAROUSEL_SETTINGS_REGION = "__rcms_auto__carousel_settings";
 
 function sourceDraftKey(websiteId, pageId) {
   return `reactcms_source_draft:${websiteId}:${pageId}`;
@@ -395,6 +396,8 @@ function ConnectedSourceWorkspace({
   const [canvasSEOScan, setCanvasSEOScan] = useState(null);
   const [pendingRuntimeInsert, setPendingRuntimeInsert] = useState(null);
   const carouselSlidesRef = useRef([]);
+  const carouselSettingsRef = useRef({});
+  const [carouselSettings, setCarouselSettings] = useState({});
   const [newCarouselSlide, setNewCarouselSlide] = useState(null);
   const runtimeAdditionsRef = useRef(createRuntimeAdditionsTree(pageKey || pageId, locale));
   const clipboardKey = `reactcms_component_clipboard:${websiteId}`;
@@ -670,6 +673,9 @@ function ConnectedSourceWorkspace({
         ));
         const draftValues = new Map(entries);
         carouselSlidesRef.current = draftValues.get(CAROUSEL_SLIDES_REGION) || [];
+        const slideSettings = draftValues.get(CAROUSEL_SETTINGS_REGION) || {};
+        carouselSettingsRef.current = slideSettings;
+        setCarouselSettings(slideSettings);
         const hydratedSelection = selectedRegionsRef.current.map((region) => (
           draftValues.has(region.regionId)
             ? { ...region, value: draftValues.get(region.regionId) }
@@ -729,6 +735,25 @@ function ConnectedSourceWorkspace({
     visualOnly,
     websiteId
   ]);
+
+  const saveCarouselSettings = useCallback((slideId, changes) => {
+    if (!/^(original-\d+|slide-[a-z0-9-]+)$/.test(slideId)) return;
+    const current = carouselSettingsRef.current;
+    const next = { ...current, [slideId]: { ...current[slideId], ...changes } };
+    const result = onVisualChange({
+      regionId: CAROUSEL_SETTINGS_REGION, type: "carousel", pageId: canvasRuntimePageId, value: next
+    });
+    if (!result?.changed) {
+      setVisualError(result?.error || "The slide changes could not be saved.");
+      return;
+    }
+    carouselSettingsRef.current = next;
+    setCarouselSettings(next);
+    sendRuntimeMessage("rcms/v1/field-update", {
+      regionId: CAROUSEL_SETTINGS_REGION, pageId: canvasRuntimePageId, value: next
+    });
+    setVisualError("");
+  }, [canvasRuntimePageId, onVisualChange, sendRuntimeMessage]);
 
   const recordConnectedHistory = useCallback((region, before, after) => {
     if (JSON.stringify(before) === JSON.stringify(after)) return;
@@ -955,6 +980,15 @@ function ConnectedSourceWorkspace({
         return;
       }
 
+      if (!isPreview && message.type === "rcms/v1/carousel-button-position") {
+        const { slideId, x, y } = message.payload || {};
+        const button = carouselSettingsRef.current[slideId]?.button;
+        if (button && Number.isFinite(x) && Number.isFinite(y)) {
+          saveCarouselSettings(slideId, { button: { ...button, x, y } });
+        }
+        return;
+      }
+
       if (!isPreview && message.type === "rcms/v1/seo-scan") {
         setCanvasSEOScan(message.payload || null);
         return;
@@ -1072,6 +1106,7 @@ function ConnectedSourceWorkspace({
     runtimeWebsiteIdFallback,
     requestCanvasSEOScan,
     sendHomeCourseLinks,
+    saveCarouselSettings,
     sendRuntimeMessage,
     updateConnectedSelection,
     visualOnly,
@@ -1611,6 +1646,35 @@ function ConnectedSourceWorkspace({
                       })}>Add slide {position}</Button>
                     ))}
                   </div>
+                  <div className="flex flex-wrap gap-2">
+                    {!carouselSettings[selectedRegion.carouselSlideId]?.button && (
+                      <Button variant="secondary" size="xs" onClick={() => saveCarouselSettings(selectedRegion.carouselSlideId, {
+                        button: { text: "Learn more", url: "/courses", x: 50, y: 76 }
+                      })}>Add Button</Button>
+                    )}
+                    {!carouselSettings[selectedRegion.carouselSlideId]?.deleted && (
+                      <Button variant="danger" size="xs" onClick={() => {
+                        saveCarouselSettings(selectedRegion.carouselSlideId, { deleted: true });
+                        clearConnectedSelection();
+                      }}>Remove slide</Button>
+                    )}
+                  </div>
+                  {carouselSettings[selectedRegion.carouselSlideId]?.button && (
+                    <div className="grid gap-2 text-xs text-slate-300">
+                      {["text", "url"].map((field) => (
+                        <label key={field}>
+                          {field === "text" ? "Button text" : "Button URL"}
+                          <input className="mt-1 h-9 w-full rounded-lg border border-slate-800 bg-[#070b14] px-3"
+                            value={carouselSettings[selectedRegion.carouselSlideId].button[field]}
+                            onChange={(event) => saveCarouselSettings(selectedRegion.carouselSlideId, {
+                              button: { ...carouselSettingsRef.current[selectedRegion.carouselSlideId].button, [field]: event.target.value }
+                            })} />
+                        </label>
+                      ))}
+                      <p>Drag the button on the banner to position it.</p>
+                      <Button variant="secondary" size="xs" onClick={() => saveCarouselSettings(selectedRegion.carouselSlideId, { button: false })}>Remove button</Button>
+                    </div>
+                  )}
                   {newCarouselSlide?.anchor === selectedRegion.carouselSlideId && (
                     <>
                       <ImagePicker label="New slide image" value={newCarouselSlide.src}
@@ -1632,7 +1696,12 @@ function ConnectedSourceWorkspace({
               <ImagePicker
                 label="Image URL"
                 value={typeof value === "string" ? value : value?.src || ""}
-                onChange={(url) => updateSelectedField("src", url)}
+                onChange={(url) => {
+                  if (!url && selectedRegion.carouselSlideId) {
+                    saveCarouselSettings(selectedRegion.carouselSlideId, { deleted: true });
+                    clearConnectedSelection();
+                  } else updateSelectedField("src", url);
+                }}
                 placeholder="Enter URL or choose/upload an image"
               />
               <label className="block">
@@ -3946,13 +4015,18 @@ export function VisualBuilderPage() {
         // Clients publish content through the installed bridge. Hosting
         // credentials belong to the administrator's browser session.
         try {
+          const draftRegions = pageKey === "home"
+            ? await visualBuilderService.loadSavedDraftRegions(websiteId, pageKey, { pageId })
+            : {};
+          const publishRegions = { ...draftRegions, ...regionsRef.current };
           spaRouting = await sourceProviderService.verifyExistingLiveRouting(sourceWebsite, {
-            requireAutomaticEditing: Object.keys(regionsRef.current).some((id) => id.startsWith("__rcms_auto__")),
+            requireAutomaticEditing: Object.keys(publishRegions).some((id) => id.startsWith("__rcms_auto__")),
             requireCourseCopy: Boolean(selectedPage?.courseTemplateRoute),
-            requireCarouselSlides: Boolean(regionsRef.current[CAROUSEL_SLIDES_REGION]?.length)
+            requireCarouselSlides: Boolean(publishRegions[CAROUSEL_SLIDES_REGION]?.length),
+            requireCarouselSettings: Boolean(publishRegions[CAROUSEL_SETTINGS_REGION])
           });
         } catch (error) {
-          throw new Error(`${error.message} Ask your administrator to reconnect hosting and use Update cPanel or Update StackCP. Your draft is saved.`);
+          throw new Error(`${error.message} A super administrator can update the hosting script from Rocket. Your draft is saved.`);
         }
       } else if (sourceWebsite) {
         // Visual-only client publishing writes editable content to Firebase.

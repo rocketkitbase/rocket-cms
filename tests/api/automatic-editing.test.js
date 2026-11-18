@@ -14,6 +14,25 @@ function setup(html, options = {}) {
   return { bridge, window: dom.window, document: dom.window.document };
 }
 describe("automatic connected website editing", () => {
+  it("excludes a cleared slide and its dot and renders a positioned link on the remaining banner", () => {
+    const { bridge, document } = setup('<section class="home-carousel"><div class="home-carousel__slides"><div class="home-carousel__slide is-active"><img src="/one.webp"></div><div class="home-carousel__slide"><img src="/two.webp"></div></div><div class="home-carousel__dots"><button></button><button></button></div></section>', { editing: true });
+    const imageId = document.querySelector("img").getAttribute("data-rcms-region");
+    bridge.applyRegions({
+      [imageId]: { src: "" },
+      __rcms_auto__carousel_settings: {
+        "original-1": { button: { text: "View courses", url: "/courses", x: 30, y: 70 } }
+      }
+    });
+    const slides = document.querySelectorAll(".home-carousel__slide");
+    const dots = document.querySelectorAll(".home-carousel__dot, .home-carousel__dots button");
+    expect(slides[0].hidden).toBe(true);
+    expect(dots[0].hidden).toBe(true);
+    expect(slides[1].getAttribute("aria-hidden")).toBe("false");
+    const button = slides[1].querySelector("a");
+    expect(button.textContent).toBe("View courses");
+    expect(button.pathname).toBe("/courses");
+    expect([button.style.left, button.style.top]).toEqual(["30%", "70%"]);
+  });
   it("renders draft course links only in the dashboard preview", async () => {
     const html = '<div class="hero-section__tracks"><a href="/promptx">PromptX</a></div>';
     const message = {
