@@ -1,0 +1,1 @@
+import{k as e}from"./index-D5Pofz39.js";function t(){return e()}export{t};
