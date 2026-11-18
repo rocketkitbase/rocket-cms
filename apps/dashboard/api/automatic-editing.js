@@ -18,7 +18,7 @@ export function installAutomaticEditing(options = {}) {
       const entry = existing.get(course.path);
       existing.delete(course.path);
       if (entry?.dataset.rocketCourseTitle === title) return;
-      const replacement = buildEntry(course.path, title);
+    const replacement = buildEntry(course.path, title, course);
       if (!replacement) return;
       replacement.dataset.rocketCourse = course.path;
       replacement.dataset.rocketCourseTitle = title;
@@ -79,7 +79,19 @@ export function installAutomaticEditing(options = {}) {
       copyCourseListing(catalogue.querySelector(".courses-list-card--promptx:not([data-rocket-course])"),
         path, title, ".courses-list-card__btn", ".courses-list-card__title",
         ".courses-list-card__desc, .courses-list-card__col--learn, .courses-list-card__col--details"));
-    updateCourseListings(registration, courses, (path, title) => {
+    updateCourseListings(registration, courses, (path, title, course) => {
+      if (options.preview) {
+        const templates = Array.from(registration.querySelectorAll(":scope > .wizard-step__list-card:not([data-rocket-course])"));
+        const templateIndex = ["/promptx", "/growthx", "/brandx", "/copycraft"].indexOf(course.templateRoute);
+        const template = templates[templateIndex < 0 ? 3 : templateIndex];
+        if (template) {
+          const card = template.cloneNode(true);
+          card.classList.remove("selected");
+          card.querySelectorAll(".wizard-step__radio-dot, .wizard-step__popular-badge").forEach((element) => element.remove());
+          card.querySelector(".wizard-step__card-badge-name").textContent = title;
+          return card;
+        }
+      }
       const link = document.createElement("a");
       link.className = "wizard-step__list-card";
       link.href = path;
@@ -288,6 +300,10 @@ export function installAutomaticEditing(options = {}) {
   function selector(element) {
     const parts = [];
     while (element && element !== document.body) {
+      if (element.hasAttribute("data-rocket-course") && element.parentElement?.matches(".wizard-step__courses-list")) {
+        return ".wizard-step__courses-list > [data-rocket-course=" + JSON.stringify(element.dataset.rocketCourse) + "]"
+          + (parts.length ? " > " + parts.join(" > ") : "");
+      }
       const tag = element.tagName.toLowerCase();
       const siblings = Array.from(element.parentElement?.children || []).filter((item) => item.tagName === element.tagName);
       parts.unshift(tag + ":nth-of-type(" + (siblings.indexOf(element) + 1) + ")");

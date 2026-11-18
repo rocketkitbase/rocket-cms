@@ -357,6 +357,7 @@ function ConnectedSourceWorkspace({
         pageId: course.id,
         path: course.route,
         title: course.title,
+        templateRoute: course.courseTemplateRoute,
         draft: course.status !== "published"
       }));
   }, [pageKey, pages, website]);
