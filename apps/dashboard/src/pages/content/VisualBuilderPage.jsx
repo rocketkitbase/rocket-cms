@@ -4016,7 +4016,9 @@ export function VisualBuilderPage() {
         // credentials belong to the administrator's browser session.
         try {
           const draftRegions = pageKey === "home"
-            ? await visualBuilderService.loadSavedDraftRegions(websiteId, pageKey, { pageId })
+            ? await visualBuilderService.loadSavedDraftRegions(websiteId, pageKey, { pageId }, [
+              CAROUSEL_SLIDES_REGION, CAROUSEL_SETTINGS_REGION
+            ])
             : {};
           const publishRegions = { ...draftRegions, ...regionsRef.current };
           spaRouting = await sourceProviderService.verifyExistingLiveRouting(sourceWebsite, {

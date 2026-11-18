@@ -380,11 +380,9 @@ export const visualBuilderService = {
     ]);
 
     const mergedRegions = {};
+    let publishedRegions = {};
     if (publishedSnapshot?.exists() && publishedSnapshot.val()?.deleted !== true) {
-      const { regions } = decodePageDocument(publishedSnapshot.val());
-      publishedFallbackRegions.forEach((regionId) => {
-        if (Object.hasOwn(regions, regionId)) mergedRegions[regionId] = regions[regionId];
-      });
+      publishedRegions = decodePageDocument(publishedSnapshot.val()).regions;
     }
     // Prefer the canonical page key while retaining fields that exist only on
     // a legacy page-id or route alias.
@@ -394,6 +392,20 @@ export const visualBuilderService = {
         Object.assign(mergedRegions, decoded.regions);
       }
     });
+    for (const regionId of publishedFallbackRegions) {
+      if (!Object.hasOwn(publishedRegions, regionId)) continue;
+      const published = publishedRegions[regionId];
+      const draft = mergedRegions[regionId];
+      if (Array.isArray(published)) {
+        mergedRegions[regionId] = Array.from(new Map(
+          [...published, ...(Array.isArray(draft) ? draft : [])]
+            .filter((slide) => slide?.id)
+            .map((slide) => [slide.id, slide])
+        ).values());
+      } else {
+        mergedRegions[regionId] = { ...published, ...draft };
+      }
+    }
     const registeredRegionDefinitions = [...registeredRegionSnapshots].reverse().reduce((all, snapshot) => {
       if (!snapshot.exists()) return all;
       return {
