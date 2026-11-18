@@ -43,7 +43,27 @@ export function installAutomaticEditing(options = {}) {
   let carouselTimer;
   let carouselTouchStart;
   let carouselDrag;
+  const originalSlideImageStyles = new WeakMap();
   const clampPosition = (value) => Math.max(0, Math.min(100, value));
+  function restoreSlideImage(slide) {
+    const image = slide.querySelector("img");
+    const original = originalSlideImageStyles.get(image);
+    if (original) {
+      Object.assign(image.style, original);
+      originalSlideImageStyles.delete(image);
+    }
+  }
+
+  function fitButtonAxis(offset, artworkSize, frameSize, anchor, inset) {
+    const center = offset + anchor;
+    const visibleCenter = Math.max(inset, Math.min(frameSize - inset, center));
+    const adjustedOffset = Math.max(frameSize - artworkSize, Math.min(0, offset + visibleCenter - center));
+    return {
+      center: Math.max(inset, Math.min(frameSize - inset, adjustedOffset + anchor)),
+      objectPosition: artworkSize > frameSize ? adjustedOffset / (frameSize - artworkSize) * 100 : 50
+    };
+  }
+
   function slideImageBounds(slide) {
     const image = slide.querySelector("img");
     const width = slide.clientWidth;
@@ -64,14 +84,25 @@ export function installAutomaticEditing(options = {}) {
   }
   function positionSlideButton(link, position) {
     const slide = link.parentElement;
-    const bounds = position.coordinateSpace === "image" && slideImageBounds(slide);
+    const image = slide.querySelector("img");
+    const followsArtwork = position.coordinateSpace === "image" || slide.hasAttribute("data-rocket-slide");
+    restoreSlideImage(slide);
+    const bounds = followsArtwork && slideImageBounds(slide);
     if (bounds) {
-      const x = bounds.left + bounds.width * clampPosition(position.x) / 100;
-      const y = bounds.top + bounds.height * clampPosition(position.y) / 100;
-      const insetX = Math.min(link.offsetWidth / 2, slide.clientWidth / 2);
-      const insetY = Math.min(link.offsetHeight / 2, slide.clientHeight / 2);
-      link.style.left = Math.max(insetX, Math.min(slide.clientWidth - insetX, x)) + "px";
-      link.style.top = Math.max(insetY, Math.min(slide.clientHeight - insetY, y)) + "px";
+      const anchorX = bounds.width * (Number.isFinite(position.x) ? clampPosition(position.x) : 50) / 100;
+      const anchorY = bounds.height * (Number.isFinite(position.y) ? clampPosition(position.y) : 76) / 100;
+      const insetX = Math.min(link.offsetWidth / 2 + 12, slide.clientWidth / 2);
+      const insetY = Math.min(link.offsetHeight / 2 + 12, slide.clientHeight / 2);
+      const x = fitButtonAxis(bounds.left, bounds.width, slide.clientWidth, anchorX, insetX);
+      const y = fitButtonAxis(bounds.top, bounds.height, slide.clientHeight, anchorY, insetY);
+      originalSlideImageStyles.set(image, {
+        objectPosition: image.style.objectPosition,
+        transform: image.style.transform
+      });
+      image.style.objectPosition = x.objectPosition + "% " + y.objectPosition + "%";
+      image.style.transform = "none";
+      link.style.left = x.center + "px";
+      link.style.top = y.center + "px";
       return;
     }
     link.style.left = (Number.isFinite(position.x) ? clampPosition(position.x) : 50) + "%";
@@ -83,6 +114,7 @@ export function installAutomaticEditing(options = {}) {
     try { if (button?.url?.trim()) url = new URL(button.url, document.baseURI); } catch {}
     if (!url || !["https:", "http:"].includes(url.protocol) || !button?.text?.trim()) {
       link?.remove();
+      restoreSlideImage(slide);
       return;
     }
     if (!link) {
@@ -357,7 +389,8 @@ export function installAutomaticEditing(options = {}) {
       y: clampPosition((y - (image?.top || 0)) / (image?.height || slide.height) * 100),
       coordinateSpace: "image"
     };
-    positionSlideButton(link, carouselDrag.position);
+    link.style.left = clampPosition(x / slide.width * 100) + "%";
+    link.style.top = clampPosition(y / slide.height * 100) + "%";
   });
   document.addEventListener("pointerup", (event) => {
     if (!carouselDrag || carouselDrag.pointerId !== event.pointerId) return;
