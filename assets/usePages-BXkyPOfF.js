@@ -1,1 +1,0 @@
-import{k as e}from"./index-CcmnT0K1.js";function t(){return e()}export{t};
