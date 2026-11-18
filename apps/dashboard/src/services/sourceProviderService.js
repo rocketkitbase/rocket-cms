@@ -740,7 +740,8 @@ async function refreshCourseTracks() {
   const grid = document.querySelector(".our-courses__grid");
   const journey = document.querySelector(".ai-journey__actions");
   const catalogue = document.querySelector(".courses-list-section__container");
-  if (!(tracks || grid || journey || catalogue) || !websiteId || !databaseUrl) return;
+  const registration = document.querySelector(".wizard-step__courses-list");
+  if (!(tracks || grid || journey || catalogue || registration) || !websiteId || !databaseUrl) return;
   try {
     const url = databaseUrl + "/registry/" + encodeURIComponent(websiteId) + "/routes.json";
     const response = await fetch(url, { cache: "no-store" });
@@ -768,6 +769,21 @@ async function refreshCourseTracks() {
       copyCourseListing(catalogue.querySelector(".courses-list-card--promptx:not([data-rocket-course])"),
         path, title, ".courses-list-card__btn", ".courses-list-card__title",
         ".courses-list-card__desc, .courses-list-card__col--learn, .courses-list-card__col--details"));
+    updateCourseListings(registration, courses, (path, title) => {
+      const link = document.createElement("a");
+      link.className = "wizard-step__list-card";
+      link.href = path;
+      link.style.gridTemplateColumns = "minmax(0, 1fr) auto";
+      link.style.textDecoration = "none";
+      link.style.setProperty("--course-accent", "#3127b2");
+      const heading = document.createElement("h3");
+      heading.className = "wizard-step__card-badge-name";
+      heading.textContent = title;
+      const action = document.createElement("span");
+      action.textContent = "View course →";
+      link.append(heading, action);
+      return link;
+    });
   } catch (error) {
     console.warn("[ReactCMS] Course links could not be refreshed.", error);
   }
@@ -836,7 +852,7 @@ async function start() {
   await loadCourseTemplateApplication(new URL(applicationSource, location.origin).href, page?.courseTemplateRoute);
   if (window.self === window.top && document.querySelector("script[data-reactcms-route-bootstrap]")
     && /^(www\\.)?monkeytribe\\.in$/.test(location.hostname)) {
-    const loadCourses = () => { if (["home", "courses"].includes(routePageKey())) void refreshCourseTracks(); };
+    const loadCourses = () => { if (["home", "courses", "register"].includes(routePageKey())) void refreshCourseTracks(); };
     loadCourses();
     window.setInterval(loadCourses, 4000);
   }
