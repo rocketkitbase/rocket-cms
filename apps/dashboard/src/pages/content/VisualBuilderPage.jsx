@@ -981,10 +981,12 @@ function ConnectedSourceWorkspace({
       }
 
       if (!isPreview && message.type === "rcms/v1/carousel-button-position") {
-        const { slideId, x, y } = message.payload || {};
+        const { slideId, x, y, coordinateSpace } = message.payload || {};
         const button = carouselSettingsRef.current[slideId]?.button;
         if (button && Number.isFinite(x) && Number.isFinite(y)) {
-          saveCarouselSettings(slideId, { button: { ...button, x, y } });
+          saveCarouselSettings(slideId, {
+            button: { ...button, x, y, coordinateSpace: coordinateSpace === "image" ? "image" : "slide" }
+          });
         }
         return;
       }

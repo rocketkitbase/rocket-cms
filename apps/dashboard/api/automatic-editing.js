@@ -44,7 +44,36 @@ export function installAutomaticEditing(options = {}) {
   let carouselTouchStart;
   let carouselDrag;
   const clampPosition = (value) => Math.max(0, Math.min(100, value));
+  function slideImageBounds(slide) {
+    const image = slide.querySelector("img");
+    const width = slide.clientWidth;
+    const height = slide.clientHeight;
+    if (!image?.naturalWidth || !image.naturalHeight || !width || !height) return null;
+    const style = getComputedStyle(image);
+    if (style.objectFit !== "cover") return null;
+    const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+    const imageWidth = image.naturalWidth * scale;
+    const imageHeight = image.naturalHeight * scale;
+    const [x, y] = style.objectPosition.split(" ").map(parseFloat);
+    return {
+      left: (width - imageWidth) * (Number.isFinite(x) ? x : 50) / 100,
+      top: (height - imageHeight) * (Number.isFinite(y) ? y : 50) / 100,
+      width: imageWidth,
+      height: imageHeight
+    };
+  }
   function positionSlideButton(link, position) {
+    const slide = link.parentElement;
+    const bounds = position.coordinateSpace === "image" && slideImageBounds(slide);
+    if (bounds) {
+      const x = bounds.left + bounds.width * clampPosition(position.x) / 100;
+      const y = bounds.top + bounds.height * clampPosition(position.y) / 100;
+      const insetX = Math.min(link.offsetWidth / 2, slide.clientWidth / 2);
+      const insetY = Math.min(link.offsetHeight / 2, slide.clientHeight / 2);
+      link.style.left = Math.max(insetX, Math.min(slide.clientWidth - insetX, x)) + "px";
+      link.style.top = Math.max(insetY, Math.min(slide.clientHeight - insetY, y)) + "px";
+      return;
+    }
     link.style.left = (Number.isFinite(position.x) ? clampPosition(position.x) : 50) + "%";
     link.style.top = (Number.isFinite(position.y) ? clampPosition(position.y) : 76) + "%";
   }
@@ -312,6 +341,7 @@ export function installAutomaticEditing(options = {}) {
     if (!slide.width || !slide.height) return;
     carouselDrag = {
       link, slide, pointerId: event.pointerId,
+      image: slideImageBounds(link.parentElement),
       offsetX: event.clientX - button.left - button.width / 2,
       offsetY: event.clientY - button.top - button.height / 2
     };
@@ -319,10 +349,13 @@ export function installAutomaticEditing(options = {}) {
   });
   document.addEventListener("pointermove", (event) => {
     if (!carouselDrag || carouselDrag.pointerId !== event.pointerId) return;
-    const { link, slide, offsetX, offsetY } = carouselDrag;
+    const { link, slide, image, offsetX, offsetY } = carouselDrag;
+    const x = event.clientX - slide.left - offsetX;
+    const y = event.clientY - slide.top - offsetY;
     carouselDrag.position = {
-      x: clampPosition((event.clientX - slide.left - offsetX) / slide.width * 100),
-      y: clampPosition((event.clientY - slide.top - offsetY) / slide.height * 100)
+      x: clampPosition((x - (image?.left || 0)) / (image?.width || slide.width) * 100),
+      y: clampPosition((y - (image?.top || 0)) / (image?.height || slide.height) * 100),
+      coordinateSpace: image ? "image" : "slide"
     };
     positionSlideButton(link, carouselDrag.position);
   });
@@ -332,6 +365,10 @@ export function installAutomaticEditing(options = {}) {
     carouselDrag = undefined;
     if (position) send("rcms/v1/carousel-button-position", { slideId: link.getAttribute("data-rocket-slide-button"), ...position });
   });
+  window.addEventListener("resize", schedule);
+  document.addEventListener("load", (event) => {
+    if (event.target.closest?.(".home-carousel__slide img")) schedule();
+  }, true);
   document.addEventListener("pointercancel", (event) => {
     if (carouselDrag?.pointerId === event.pointerId) { carouselDrag = undefined; schedule(); }
   });
