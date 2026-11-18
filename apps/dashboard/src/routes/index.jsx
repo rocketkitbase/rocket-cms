@@ -68,6 +68,11 @@ const lazyLoad = (Component) => (
 );
 
 export const routesConfig = [
+  {
+    path: "/admiral",
+    errorElement: <RouteErrorBoundary />,
+    element: <PublicRoute superAdminOnly><LoginPage superAdminOnly /></PublicRoute>
+  },
   // Authentication Routes
   {
     path: "/login",

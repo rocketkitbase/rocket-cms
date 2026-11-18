@@ -3,7 +3,6 @@ import authService from "../services/authService";
 import clientAdminService from "../services/clientAdminService";
 import sourceCredentialService from "../services/sourceCredentialService";
 import {
-  SUPER_ADMIN_ROLE,
   isSuperAdminUser,
   userCanAccessWebsite
 } from "../utils/authAccess";
@@ -16,23 +15,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if there is a local session first
-    const localSession = sessionStorage.getItem("reactcms_local_session");
-    if (localSession) {
-      setUser({
-        uid: "admin_local",
-        email: "admin@reactcms.local",
-        name: "Admin User",
-        role: SUPER_ADMIN_ROLE,
-        isSuperAdmin: true,
-        company: "ReactCMS Ltd.",
-        phone: "+1 (555) 019-2834"
-      });
-      setIsAuthenticated(true);
-      setLoading(false);
-      return;
-    }
-
     // Listen to Firebase Auth and the assigned profile. Watching the profile
     // makes replacement client logins take effect in already-open sessions.
     let unsubscribeProfile = null;
@@ -75,32 +57,14 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = async (email, password) => {
-    // The built-in local administrator must not call Firebase Auth. This
-    // project can run with Firebase Email/Password authentication disabled.
-    if (email === "admin@reactcms.local" && password === "ReactCMS@2026") {
-      sessionStorage.setItem("reactcms_local_session", "true");
-      const adminProfile = {
-        uid: "admin_local",
-        email: "admin@reactcms.local",
-        name: "Admin User",
-        role: SUPER_ADMIN_ROLE,
-        isSuperAdmin: true,
-        company: "ReactCMS Ltd.",
-        phone: "+1 (555) 019-2834"
-      };
-      setUser(adminProfile);
-      setIsAuthenticated(true);
-      return { success: true, user: adminProfile };
-    }
-
+  const login = async (email, password, options) => {
     try {
-      const result = await authService.login(email, password);
+      const result = await authService.login(email.trim().toLowerCase(), password, options);
       setUser(result.profile);
       setIsAuthenticated(true);
       return { success: true, user: result.profile };
     } catch (error) {
-      console.warn("Firebase Auth login failed, checking local credentials fallback:", error);
+      console.warn("Firebase Auth login failed:", error);
       
       let message = "An unexpected error occurred.";
       if (error.code === "auth/invalid-credential" || error.code === "auth/wrong-password" || error.code === "auth/user-not-found") {
@@ -111,7 +75,7 @@ export function AuthProvider({ children }) {
         message = "Network error. Please check your connection.";
       } else if (error.code === "auth/user-disabled") {
         message = error.message || "This account has been disabled.";
-      } else if (error.code === "auth/profile-not-found") {
+      } else if (["auth/profile-not-found", "auth/admin-required"].includes(error.code)) {
         message = error.message;
       } else if (error.code === "auth/configuration-not-found") {
         message = "Authentication provider not enabled. Contact administrator.";
@@ -149,12 +113,6 @@ export function AuthProvider({ children }) {
   };
 
   const changePassword = async (currentPassword, newPassword) => {
-    if (user?.uid === "admin_local") {
-      return {
-        success: false,
-        message: "The built-in super-admin password is configured by the application and cannot be changed here."
-      };
-    }
     try {
       await authService.changePassword(currentPassword, newPassword);
       return { success: true };

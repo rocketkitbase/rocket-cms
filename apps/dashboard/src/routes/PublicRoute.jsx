@@ -3,8 +3,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { LoadingSkeleton } from "../components/ui/LoadingSkeleton";
 
-export function PublicRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+export function PublicRoute({ children, superAdminOnly = false }) {
+  const { isAuthenticated, isSuperAdmin, loading } = useAuth();
 
   if (loading) {
     return (
@@ -16,7 +16,7 @@ export function PublicRoute({ children }) {
     );
   }
 
-  if (isAuthenticated) {
+  if (isAuthenticated && (!superAdminOnly || isSuperAdmin)) {
     return <Navigate to="/dashboard" replace />;
   }
 

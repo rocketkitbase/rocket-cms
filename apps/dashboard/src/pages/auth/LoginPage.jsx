@@ -16,7 +16,7 @@ const loginSchema = zod.object({
   rememberMe: zod.boolean().optional()
 });
 
-export function LoginPage() {
+export function LoginPage({ superAdminOnly = false }) {
   const { login } = useAuth();
   const toast = useToast();
   const [errorMsg, setErrorMsg] = useState("");
@@ -25,7 +25,7 @@ export function LoginPage() {
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      email: superAdminOnly ? "admin@rocketkit.in" : "",
       password: "",
       rememberMe: false
     }
@@ -35,7 +35,7 @@ export function LoginPage() {
     setLoading(true);
     setErrorMsg("");
     try {
-      const result = await login(data.email, data.password);
+      const result = await login(data.email, data.password, { superAdminOnly });
       if (result.success) {
         toast.success("Welcome back! Redirecting...");
       } else {
@@ -64,7 +64,7 @@ export function LoginPage() {
             alt="Rocket Kit - Content Infrastructure for React"
             className="mb-4 w-full max-w-xs rounded-2xl bg-white shadow-xl shadow-slate-950/10"
           />
-          <p className="text-sm text-admin-secondary mt-1">Super-admin and website client access</p>
+          <p className="text-sm text-admin-secondary mt-1">{superAdminOnly ? "Super administrator access" : "Rocket Kit account access"}</p>
         </div>
 
         <Card className="shadow-xl">

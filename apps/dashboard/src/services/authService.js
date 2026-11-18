@@ -1,4 +1,5 @@
 import { auth, database } from "../lib/firebase";
+import { isSuperAdminUser } from "../utils/authAccess";
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -10,7 +11,7 @@ import {
 import { ref, get, set, update, serverTimestamp, onValue } from "firebase/database";
 
 export const authService = {
-  async login(email, password) {
+  async login(email, password, { superAdminOnly = false } = {}) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const profile = await this.getUserProfile(userCredential.user.uid);
@@ -24,6 +25,12 @@ export const authService = {
         await signOut(auth);
         const error = new Error("This client login has been replaced or disabled.");
         error.code = "auth/user-disabled";
+        throw error;
+      }
+      if (superAdminOnly && !isSuperAdminUser(profile)) {
+        await signOut(auth);
+        const error = new Error("Use a super administrator account to sign in here.");
+        error.code = "auth/admin-required";
         throw error;
       }
       return { success: true, user: userCredential.user, profile };
