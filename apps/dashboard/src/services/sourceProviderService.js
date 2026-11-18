@@ -693,35 +693,78 @@ function watchPublishedPage() {
   window.setInterval(refreshPublishedPage, 4000);
 }
 
+function updateCourseListings(container, courses, buildEntry) {
+  if (!container?.isConnected) return;
+  const existing = new Map(Array.from(container.querySelectorAll(":scope > [data-rocket-course]"))
+    .map((element) => [element.dataset.rocketCourse, element]));
+  courses.forEach((course) => {
+    const title = String(course.title || course.slug || "Course");
+    const entry = existing.get(course.path);
+    existing.delete(course.path);
+    if (entry?.dataset.rocketCourseTitle === title) return;
+    const replacement = buildEntry(course.path, title);
+    if (!replacement) return;
+    replacement.dataset.rocketCourse = course.path;
+    replacement.dataset.rocketCourseTitle = title;
+    if (entry) entry.replaceWith(replacement);
+    else container.appendChild(replacement);
+  });
+  existing.forEach((element) => element.remove());
+}
+
+function copyCourseListing(template, path, title, linkSelector, titleSelector, omittedSelector) {
+  if (!template) return;
+  const entry = template.cloneNode(true);
+  entry.querySelectorAll(omittedSelector).forEach((element) => element.remove());
+  const link = linkSelector ? entry.querySelector(linkSelector) : entry;
+  const heading = entry.querySelector(titleSelector);
+  if (!link || !heading) return;
+  link.href = path;
+  heading.textContent = title;
+  entry.classList.add("is-visible");
+  const label = entry.querySelector(".course-card__label, .courses-list-card__label");
+  if (label) {
+    Array.from(label.childNodes).filter((node) => node.nodeType === 3).forEach((node) => node.remove());
+    label.appendChild(document.createTextNode(title));
+  }
+  const brand = entry.querySelector(".courses-list-card__col--brand");
+  if (brand) brand.style.gridColumn = "1 / -1";
+  return entry;
+}
+
 async function refreshCourseTracks() {
   const tracks = document.querySelector(".hero-section__tracks");
-  if (!tracks || !websiteId || !databaseUrl) return;
+  const grid = document.querySelector(".our-courses__grid");
+  const journey = document.querySelector(".ai-journey__actions");
+  const catalogue = document.querySelector(".courses-list-section__container");
+  if (!(tracks || grid || journey || catalogue) || !websiteId || !databaseUrl) return;
   try {
     const url = databaseUrl + "/registry/" + encodeURIComponent(websiteId) + "/routes.json";
     const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok || !tracks.isConnected) return;
+    if (!response.ok) return;
     const routes = Object.values(await response.json() || {});
     const courses = routes.filter((route) => route?.published === true && route.course === true
       && /^\\/[a-z0-9-]+$/.test(route.path));
-    const existing = new Map(Array.from(tracks.querySelectorAll("[data-rocket-course]"))
-      .map((element) => [element.getAttribute("data-rocket-course"), element]));
-    courses.forEach((course) => {
-      let wrapper = existing.get(course.path);
-      existing.delete(course.path);
-      if (!wrapper) {
-        wrapper = document.createElement("div");
-        wrapper.className = "hero-track-wrapper";
-        wrapper.setAttribute("data-rocket-course", course.path);
-        const link = document.createElement("a");
-        link.className = "hero-track hero-track--prompt";
-        link.setAttribute("href", course.path);
-        wrapper.appendChild(link);
-        tracks.appendChild(wrapper);
-      }
-      const label = String(course.title || course.slug || "Course") + " →";
-      if (wrapper.firstElementChild.textContent !== label) wrapper.firstElementChild.textContent = label;
+    updateCourseListings(tracks, courses, (path, title) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "hero-track-wrapper";
+      const link = document.createElement("a");
+      link.className = "hero-track hero-track--prompt";
+      link.href = path;
+      link.textContent = title + " →";
+      wrapper.appendChild(link);
+      return wrapper;
     });
-    existing.forEach((element) => element.remove());
+    updateCourseListings(journey, courses, (path, title) =>
+      copyCourseListing(journey.querySelector(".ai-journey__button--copy:not([data-rocket-course])"),
+        path, title, null, "span", "script"));
+    updateCourseListings(grid, courses, (path, title) =>
+      copyCourseListing(grid.querySelector(".course-card--promptx:not([data-rocket-course])"),
+        path, title, ".course-card__button", "h3", "p, ul"));
+    updateCourseListings(catalogue, courses, (path, title) =>
+      copyCourseListing(catalogue.querySelector(".courses-list-card--promptx:not([data-rocket-course])"),
+        path, title, ".courses-list-card__btn", ".courses-list-card__title",
+        ".courses-list-card__desc, .courses-list-card__col--learn, .courses-list-card__col--details"));
   } catch (error) {
     console.warn("[ReactCMS] Course links could not be refreshed.", error);
   }
@@ -790,7 +833,7 @@ async function start() {
   await loadCourseTemplateApplication(new URL(applicationSource, location.origin).href, page?.courseTemplateRoute);
   if (window.self === window.top && document.querySelector("script[data-reactcms-route-bootstrap]")
     && /^(www\\.)?monkeytribe\\.in$/.test(location.hostname)) {
-    const loadCourses = () => { if (routePageKey() === "home") void refreshCourseTracks(); };
+    const loadCourses = () => { if (["home", "courses"].includes(routePageKey())) void refreshCourseTracks(); };
     loadCourses();
     window.setInterval(loadCourses, 4000);
   }
