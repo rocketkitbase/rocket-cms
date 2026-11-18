@@ -1,0 +1,1 @@
+import{k as e}from"./index-Bflu2Zox.js";function t(){return e()}export{t};
