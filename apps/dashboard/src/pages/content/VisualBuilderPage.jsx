@@ -653,7 +653,7 @@ function ConnectedSourceWorkspace({
       routeId: page?.routeId,
       slug: page?.slug,
       route: page?.route
-    })
+    }, pageKey === "home" ? [CAROUSEL_SLIDES_REGION, CAROUSEL_SETTINGS_REGION] : [])
       .then((draftRegions) => {
         if (connectedDraftHydrationRunRef.current !== hydrationRun) return;
         let sourceOverrides = {};

@@ -354,7 +354,7 @@ export const visualBuilderService = {
     };
   },
 
-  async loadSavedDraftRegions(websiteId, pageKey, pageIdentity = {}) {
+  async loadSavedDraftRegions(websiteId, pageKey, pageIdentity = {}, publishedFallbackRegions = []) {
     const candidateKeys = Array.from(new Set([
       pageKey,
       pageIdentity?.pageId,
@@ -367,16 +367,25 @@ export const visualBuilderService = {
       .filter(Boolean)
       .map((value) => String(value).split("?")[0].replace(/^\/+|\/+$/g, "") || "home")));
 
-    const [snapshots, registeredRegionSnapshots] = await Promise.all([
+    const [snapshots, registeredRegionSnapshots, publishedSnapshot] = await Promise.all([
       Promise.all(candidateKeys.map((key) => (
         get(ref(database, paths.contentDraft(websiteId, key)))
       ))),
       Promise.all(candidateKeys.map((key) => (
         get(ref(database, paths.registryRegions(websiteId, key)))
-      )))
+      ))),
+      publishedFallbackRegions.length
+        ? get(ref(database, paths.contentPublished(websiteId, pageKey)))
+        : null
     ]);
 
     const mergedRegions = {};
+    if (publishedSnapshot?.exists() && publishedSnapshot.val()?.deleted !== true) {
+      const { regions } = decodePageDocument(publishedSnapshot.val());
+      publishedFallbackRegions.forEach((regionId) => {
+        if (Object.hasOwn(regions, regionId)) mergedRegions[regionId] = regions[regionId];
+      });
+    }
     // Prefer the canonical page key while retaining fields that exist only on
     // a legacy page-id or route alias.
     [...snapshots].reverse().forEach((snapshot) => {
