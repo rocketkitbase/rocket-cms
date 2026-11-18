@@ -1,0 +1,1 @@
+import{k as e}from"./index-C_KKdRLZ.js";function t(){return e()}export{t};
