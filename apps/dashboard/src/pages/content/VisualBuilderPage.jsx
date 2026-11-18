@@ -4101,6 +4101,13 @@ export function VisualBuilderPage() {
       if (isSuperAdmin && selectedPage?.courseTemplateRoute) {
         await sourceProviderService.verifyExistingLiveRouting(sourceWebsite, { requireCourseCopy: true });
       }
+      if (sourceWebsite && pageKey === "home" && Object.values(
+        regionsRef.current[CAROUSEL_SETTINGS_REGION] || {}
+      ).some((slide) => !slide?.deleted && slide?.button?.coordinateSpace === "image")) {
+        await sourceProviderService.verifyExistingLiveRouting(sourceWebsite, {
+          requireCarouselImagePosition: true
+        });
+      }
       const publishTargets = Array.from(new Map([
         [`${websiteId}:${pageKey}`, { websiteId, pageKey }],
         ...connectedPublishTargetsRef.current.entries()

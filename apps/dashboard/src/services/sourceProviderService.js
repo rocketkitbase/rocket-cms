@@ -266,7 +266,7 @@ function normalizedLiveOrigin(domain) {
   return url.origin;
 }
 
-export async function verifyExistingLiveRouting(website, { requireAutomaticEditing = false, requireCourseCopy = false, requireCarouselSlides = false, requireCarouselSettings = false } = {}) {
+export async function verifyExistingLiveRouting(website, { requireAutomaticEditing = false, requireCourseCopy = false, requireCarouselSlides = false, requireCarouselSettings = false, requireCarouselImagePosition = false } = {}) {
   const origin = normalizedLiveOrigin(website?.domain);
   const verificationId = Date.now().toString(36);
   const nestedRoute = new URL(`/reactcms-route-check-${verificationId}`, origin);
@@ -321,6 +321,9 @@ export async function verifyExistingLiveRouting(website, { requireAutomaticEditi
   }
   if (requireCarouselSettings && !bootstrapSource.includes("__rcms_auto__carousel_settings")) {
     throw new Error("Run Set Up Live Publishing in Rocket to enable slide removal and banner buttons.");
+  }
+  if (requireCarouselImagePosition && !bootstrapSource.includes("coordinateSpace")) {
+    throw new Error("Run Set Up Live Publishing in Rocket to update banner button positioning. Your draft is saved.");
   }
 
   return {
