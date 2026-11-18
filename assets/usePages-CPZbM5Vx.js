@@ -1,0 +1,1 @@
+import{k as e}from"./index-CsfguF2q.js";function t(){return e()}export{t};
