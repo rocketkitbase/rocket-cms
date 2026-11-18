@@ -1,1 +1,0 @@
-import{k as e}from"./index-qL1DNrPg.js";function t(){return e()}export{t};
