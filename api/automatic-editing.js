@@ -50,7 +50,7 @@ export function installAutomaticEditing(options = {}) {
     const height = slide.clientHeight;
     if (!image?.naturalWidth || !image.naturalHeight || !width || !height) return null;
     const style = getComputedStyle(image);
-    if (style.objectFit !== "cover") return null;
+    if (style.objectFit !== "cover") return { left: 0, top: 0, width, height };
     const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
     const imageWidth = image.naturalWidth * scale;
     const imageHeight = image.naturalHeight * scale;
@@ -355,7 +355,7 @@ export function installAutomaticEditing(options = {}) {
     carouselDrag.position = {
       x: clampPosition((x - (image?.left || 0)) / (image?.width || slide.width) * 100),
       y: clampPosition((y - (image?.top || 0)) / (image?.height || slide.height) * 100),
-      coordinateSpace: image ? "image" : "slide"
+      coordinateSpace: "image"
     };
     positionSlideButton(link, carouselDrag.position);
   });
