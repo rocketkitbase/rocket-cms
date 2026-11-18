@@ -350,7 +350,7 @@ function ConnectedSourceWorkspace({
 }) {
   const navigate = useNavigate();
   const homeCourseLinks = useMemo(() => {
-    if (pageKey !== "home" || !isMonkeyTribeWebsite(website)) return null;
+    if (!["home", "courses", "register"].includes(pageKey) || !isMonkeyTribeWebsite(website)) return null;
     return (pages || []).filter((course) => course.courseTemplateRoute && course.status !== "archived"
       && /^\/[a-z0-9-]+$/.test(course.route))
       .map((course) => ({

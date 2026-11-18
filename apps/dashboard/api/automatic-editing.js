@@ -8,33 +8,92 @@ export function installAutomaticEditing(options = {}) {
   let started = false;
   let observer;
   let timer;
-  let previewCourses = null;
-  function syncPreviewCourses() {
-    if (!previewCourses) return;
-    const tracks = document.querySelector(".hero-section__tracks");
-    if (!tracks) return;
-    const existing = new Map(Array.from(tracks.querySelectorAll("[data-rocket-course]"))
-      .map((item) => [item.getAttribute("data-rocket-course"), item]));
-    for (const course of previewCourses) {
-      if (!course || !/^\/[a-z0-9-]+$/.test(course.path) || typeof course.pageId !== "string") continue;
-      let wrapper = existing.get(course.path);
+  let courses = null;
+  function updateCourseListings(container, courses, buildEntry) {
+    if (!container?.isConnected) return;
+    const existing = new Map(Array.from(container.querySelectorAll(":scope > [data-rocket-course]"))
+      .map((element) => [element.dataset.rocketCourse, element]));
+    courses.forEach((course) => {
+      const title = String(course.title || course.slug || "Course") + (course.draft ? " (Draft)" : "");
+      const entry = existing.get(course.path);
       existing.delete(course.path);
-      if (!wrapper) {
-        wrapper = document.createElement("div");
-        wrapper.className = "hero-track-wrapper";
-        wrapper.setAttribute("data-rocket-course", course.path);
-        const link = document.createElement("a");
-        link.className = "hero-track hero-track--prompt";
-        wrapper.appendChild(link);
-        tracks.appendChild(wrapper);
-      }
-      const link = wrapper.firstElementChild;
-      link.setAttribute("href", course.path);
-      link.setAttribute("data-rocket-preview-course", course.pageId);
-      const label = String(course.title || course.path.slice(1)) + (course.draft ? " (Draft)" : " →");
-      if (link.textContent !== label) link.textContent = label;
+      if (entry?.dataset.rocketCourseTitle === title) return;
+      const replacement = buildEntry(course.path, title);
+      if (!replacement) return;
+      replacement.dataset.rocketCourse = course.path;
+      replacement.dataset.rocketCourseTitle = title;
+      const link = replacement.matches("a") ? replacement : replacement.querySelector("a");
+      if (link && options.preview && course.pageId) link.dataset.rocketPreviewCourse = course.pageId;
+      if (entry) entry.replaceWith(replacement);
+      else container.appendChild(replacement);
+    });
+    existing.forEach((element) => element.remove());
+  }
+
+  function copyCourseListing(template, path, title, linkSelector, titleSelector, omittedSelector) {
+    if (!template) return;
+    const entry = template.cloneNode(true);
+    entry.querySelectorAll(omittedSelector).forEach((element) => element.remove());
+    for (const element of [entry, ...entry.querySelectorAll("[data-rcms-region]")]) {
+      element.removeAttribute("data-rcms-region");
+      element.removeAttribute("data-rcms-type");
+      element.removeAttribute("data-rcms-label");
     }
-    existing.forEach((item) => item.remove());
+    const link = linkSelector ? entry.querySelector(linkSelector) : entry;
+    const heading = entry.querySelector(titleSelector);
+    if (!link || !heading) return;
+    link.href = path;
+    heading.textContent = title;
+    entry.classList.add("is-visible");
+    const label = entry.querySelector(".course-card__label, .courses-list-card__label");
+    if (label) {
+      Array.from(label.childNodes).filter((node) => node.nodeType === 3).forEach((node) => node.remove());
+      label.appendChild(document.createTextNode(title));
+    }
+    const brand = entry.querySelector(".courses-list-card__col--brand");
+    if (brand) brand.style.gridColumn = "1 / -1";
+    return entry;
+  }
+
+  function syncCourseListings() {
+    if (!courses) return;
+    const tracks = document.querySelector(".hero-section__tracks");
+    const grid = document.querySelector(".our-courses__grid");
+    const journey = document.querySelector(".ai-journey__actions");
+    const catalogue = document.querySelector(".courses-list-section__container");
+    const registration = document.querySelector(".wizard-step__courses-list");
+    updateCourseListings(tracks, courses, (path, title) => {
+      const template = tracks.querySelector(".hero-track-wrapper:not([data-rocket-course])");
+      const entry = copyCourseListing(template, path, title, ".hero-track", ".hero-track > span",
+        ":scope > :not(.hero-track)");
+      if (entry) entry.querySelector(".hero-track").style.paddingInline = "16px";
+      return entry;
+    });
+    updateCourseListings(journey, courses, (path, title) =>
+      copyCourseListing(journey.querySelector(".ai-journey__button--copy:not([data-rocket-course])"),
+        path, title, null, "span", "script"));
+    updateCourseListings(grid, courses, (path, title) =>
+      copyCourseListing(grid.querySelector(".course-card--promptx:not([data-rocket-course])"),
+        path, title, ".course-card__button", "h3", "p, ul"));
+    updateCourseListings(catalogue, courses, (path, title) =>
+      copyCourseListing(catalogue.querySelector(".courses-list-card--promptx:not([data-rocket-course])"),
+        path, title, ".courses-list-card__btn", ".courses-list-card__title",
+        ".courses-list-card__desc, .courses-list-card__col--learn, .courses-list-card__col--details"));
+    updateCourseListings(registration, courses, (path, title) => {
+      const link = document.createElement("a");
+      link.className = "wizard-step__list-card";
+      link.href = path;
+      link.style.gridTemplateColumns = "minmax(0, 1fr) auto";
+      link.style.textDecoration = "none";
+      link.style.setProperty("--course-accent", "#3127b2");
+      const heading = document.createElement("h3");
+      heading.className = "wizard-step__card-badge-name";
+      heading.textContent = title;
+      const action = document.createElement("span");
+      action.textContent = "View course →";
+      link.append(heading, action);
+      return link;
+    });
   }
   const carouselRegion = "__rcms_auto__carousel_slides";
   const carouselSettingsRegion = "__rcms_auto__carousel_settings";
@@ -282,7 +341,7 @@ export function installAutomaticEditing(options = {}) {
   function discover() {
     scheduled = false;
     syncCarousel();
-    syncPreviewCourses();
+    syncCourseListings();
     // Mixed footer copy contains direct text beside links. Expose each plain
     // text run separately so editing it never clears the adjacent link/icon.
     document.querySelectorAll("p,li,div").forEach((element) => {
@@ -324,7 +383,7 @@ export function installAutomaticEditing(options = {}) {
     if (event.source !== window.parent || !message?.rcms || message.version !== "v1") return;
     websiteId = message.websiteId || websiteId;
     if (options.preview && message.type === "rcms/v1/preview-course-links" && Array.isArray(message.payload?.courses)) {
-      previewCourses = message.payload.courses;
+      courses = message.payload.courses.filter((course) => course && /^\/[a-z0-9-]+$/.test(course.path) && typeof course.pageId === "string");
       schedule();
       return;
     }
@@ -432,6 +491,7 @@ export function installAutomaticEditing(options = {}) {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
   return {
+    applyCourses(nextCourses) { courses = nextCourses; syncCourseListings(); },
     applyRegions(regions) { Object.keys(values).forEach((key) => delete values[key]); Object.assign(values, regions); discover(); },
     destroy() { observer?.disconnect(); window.clearTimeout(timer); window.clearInterval(carouselTimer); document.removeEventListener("DOMContentLoaded", start); }
   };

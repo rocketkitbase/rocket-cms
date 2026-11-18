@@ -696,52 +696,10 @@ function watchPublishedPage() {
   window.setInterval(refreshPublishedPage, 4000);
 }
 
-function updateCourseListings(container, courses, buildEntry) {
-  if (!container?.isConnected) return;
-  const existing = new Map(Array.from(container.querySelectorAll(":scope > [data-rocket-course]"))
-    .map((element) => [element.dataset.rocketCourse, element]));
-  courses.forEach((course) => {
-    const title = String(course.title || course.slug || "Course");
-    const entry = existing.get(course.path);
-    existing.delete(course.path);
-    if (entry?.dataset.rocketCourseTitle === title) return;
-    const replacement = buildEntry(course.path, title);
-    if (!replacement) return;
-    replacement.dataset.rocketCourse = course.path;
-    replacement.dataset.rocketCourseTitle = title;
-    if (entry) entry.replaceWith(replacement);
-    else container.appendChild(replacement);
-  });
-  existing.forEach((element) => element.remove());
-}
-
-function copyCourseListing(template, path, title, linkSelector, titleSelector, omittedSelector) {
-  if (!template) return;
-  const entry = template.cloneNode(true);
-  entry.querySelectorAll(omittedSelector).forEach((element) => element.remove());
-  const link = linkSelector ? entry.querySelector(linkSelector) : entry;
-  const heading = entry.querySelector(titleSelector);
-  if (!link || !heading) return;
-  link.href = path;
-  heading.textContent = title;
-  entry.classList.add("is-visible");
-  const label = entry.querySelector(".course-card__label, .courses-list-card__label");
-  if (label) {
-    Array.from(label.childNodes).filter((node) => node.nodeType === 3).forEach((node) => node.remove());
-    label.appendChild(document.createTextNode(title));
-  }
-  const brand = entry.querySelector(".courses-list-card__col--brand");
-  if (brand) brand.style.gridColumn = "1 / -1";
-  return entry;
-}
-
 async function refreshCourseTracks() {
-  const tracks = document.querySelector(".hero-section__tracks");
-  const grid = document.querySelector(".our-courses__grid");
-  const journey = document.querySelector(".ai-journey__actions");
-  const catalogue = document.querySelector(".courses-list-section__container");
-  const registration = document.querySelector(".wizard-step__courses-list");
-  if (!(tracks || grid || journey || catalogue || registration) || !websiteId || !databaseUrl) return;
+  if (!websiteId || !databaseUrl || !document.querySelector(
+    ".hero-section__tracks, .our-courses__grid, .ai-journey__actions, .courses-list-section__container, .wizard-step__courses-list"
+  )) return;
   try {
     const url = databaseUrl + "/registry/" + encodeURIComponent(websiteId) + "/routes.json";
     const response = await fetch(url, { cache: "no-store" });
@@ -749,41 +707,7 @@ async function refreshCourseTracks() {
     const routes = Object.values(await response.json() || {});
     const courses = routes.filter((route) => route?.published === true && route.course === true
       && /^\\/[a-z0-9-]+$/.test(route.path));
-    updateCourseListings(tracks, courses, (path, title) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "hero-track-wrapper";
-      const link = document.createElement("a");
-      link.className = "hero-track hero-track--prompt";
-      link.href = path;
-      link.textContent = title + " →";
-      wrapper.appendChild(link);
-      return wrapper;
-    });
-    updateCourseListings(journey, courses, (path, title) =>
-      copyCourseListing(journey.querySelector(".ai-journey__button--copy:not([data-rocket-course])"),
-        path, title, null, "span", "script"));
-    updateCourseListings(grid, courses, (path, title) =>
-      copyCourseListing(grid.querySelector(".course-card--promptx:not([data-rocket-course])"),
-        path, title, ".course-card__button", "h3", "p, ul"));
-    updateCourseListings(catalogue, courses, (path, title) =>
-      copyCourseListing(catalogue.querySelector(".courses-list-card--promptx:not([data-rocket-course])"),
-        path, title, ".courses-list-card__btn", ".courses-list-card__title",
-        ".courses-list-card__desc, .courses-list-card__col--learn, .courses-list-card__col--details"));
-    updateCourseListings(registration, courses, (path, title) => {
-      const link = document.createElement("a");
-      link.className = "wizard-step__list-card";
-      link.href = path;
-      link.style.gridTemplateColumns = "minmax(0, 1fr) auto";
-      link.style.textDecoration = "none";
-      link.style.setProperty("--course-accent", "#3127b2");
-      const heading = document.createElement("h3");
-      heading.className = "wizard-step__card-badge-name";
-      heading.textContent = title;
-      const action = document.createElement("span");
-      action.textContent = "View course →";
-      link.append(heading, action);
-      return link;
-    });
+    automaticEditing.applyCourses(courses);
   } catch (error) {
     console.warn("[ReactCMS] Course links could not be refreshed.", error);
   }
