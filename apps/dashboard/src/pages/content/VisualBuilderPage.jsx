@@ -1662,6 +1662,12 @@ function ConnectedSourceWorkspace({
                       }}>Remove slide</Button>
                     )}
                   </div>
+                  <ImagePicker
+                    label="Mobile slide image"
+                    value={carouselSettings[selectedRegion.carouselSlideId]?.mobileImage || ""}
+                    onChange={(mobileImage) => saveCarouselSettings(selectedRegion.carouselSlideId, { mobileImage })}
+                    placeholder="Choose or enter a portrait image for phones"
+                  />
                   {carouselSettings[selectedRegion.carouselSlideId]?.button && (
                     <div className="grid gap-2 text-xs text-slate-300">
                       {["text", "url"].map((field) => (

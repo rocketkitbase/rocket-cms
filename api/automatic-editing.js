@@ -115,6 +115,41 @@ export function installAutomaticEditing(options = {}) {
   let carouselTouchStart;
   let carouselDrag;
   const originalSlideImageStyles = new WeakMap();
+  const originalSlideSrcsets = new WeakMap();
+  const mobileBannerQuery = "(max-width: 720px)";
+  function syncMobileSlideImage(slide, image, mobileImage) {
+    if (!image) return;
+    let url;
+    try { if (mobileImage?.trim()) url = new URL(mobileImage, document.baseURI); } catch {}
+    const src = url && ["http:", "https:"].includes(url.protocol)
+      ? url.href.replaceAll(",", "%2C")
+      : "";
+    slide.toggleAttribute("data-rocket-mobile-image", Boolean(src));
+    const picture = image.parentElement;
+    if (picture.matches("picture")) {
+      let source = picture.querySelector("source[data-rocket-mobile-source]");
+      if (!src) { source?.remove(); return; }
+      if (!source) {
+        source = document.createElement("source");
+        source.setAttribute("data-rocket-mobile-source", "");
+        source.media = mobileBannerQuery;
+        source.srcset = src;
+        picture.prepend(source);
+      } else if (source.getAttribute("srcset") !== src) {
+        source.srcset = src;
+      }
+      return;
+    }
+    if (src && window.matchMedia(mobileBannerQuery).matches) {
+      if (!originalSlideSrcsets.has(image)) originalSlideSrcsets.set(image, image.getAttribute("srcset"));
+      if (image.getAttribute("srcset") !== src) image.srcset = src;
+    } else if (originalSlideSrcsets.has(image)) {
+      const original = originalSlideSrcsets.get(image);
+      if (original === null) image.removeAttribute("srcset");
+      else image.srcset = original;
+      originalSlideSrcsets.delete(image);
+    }
+  }
   const clampPosition = (value) => Math.max(0, Math.min(100, value));
   function restoreSlideImage(slide) {
     const image = slide.querySelector("img");
@@ -277,6 +312,7 @@ export function installAutomaticEditing(options = {}) {
       const hidden = settings[id]?.deleted === true || override?.src === "" || override === "";
       slide.hidden = hidden;
       dot.hidden = hidden;
+      syncMobileSlideImage(slide, image, settings[id]?.mobileImage);
       syncSlideButton(slide, id, hidden ? null : settings[id]?.button);
       return !hidden;
     });
@@ -506,7 +542,7 @@ export function installAutomaticEditing(options = {}) {
     if (started) return;
     started = true;
     const mobileBannerStyle = document.createElement("style");
-    mobileBannerStyle.textContent = '@media(max-width:720px){.home-carousel__slide[data-rocket-slide] img{object-fit:contain!important;object-position:center!important;transform:none!important}}';
+    mobileBannerStyle.textContent = '@media(max-width:720px){.home-carousel__slide[data-rocket-slide]:not([data-rocket-mobile-image]) img{object-fit:contain!important;object-position:center!important;transform:none!important}.home-carousel__slide[data-rocket-mobile-image] img{object-fit:cover;transform:none!important}}';
     document.head.appendChild(mobileBannerStyle);
     if (options.preview) {
       const style = document.createElement("style");
