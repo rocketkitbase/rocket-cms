@@ -69,9 +69,26 @@ export function installAutomaticEditing(options = {}) {
       if (entry) entry.querySelector(".hero-track").style.paddingInline = "16px";
       return entry;
     });
-    updateCourseListings(journey, courses, (path, title) =>
-      copyCourseListing(journey.querySelector(".ai-journey__button--copy:not([data-rocket-course])"),
-        path, title, null, "span", "script"));
+    updateCourseListings(journey, courses, (path, title) => {
+      const button = copyCourseListing(journey.querySelector(".ai-journey__button--copy:not([data-rocket-course])"),
+        path, title, null, "span", "script");
+      if (!button) return;
+      Object.assign(button.style, {
+        flexBasis: "auto",
+        boxSizing: "border-box",
+        minWidth: "0",
+        maxWidth: "100%",
+        height: "auto",
+        minHeight: "57px",
+        paddingBlock: "10px"
+      });
+      Object.assign(button.querySelector("span").style, {
+        minWidth: "0",
+        overflowWrap: "anywhere",
+        lineHeight: "1.25"
+      });
+      return button;
+    });
     updateCourseListings(grid, courses, (path, title) =>
       copyCourseListing(grid.querySelector(".course-card--promptx:not([data-rocket-course])"),
         path, title, ".course-card__button", "h3", "p, ul"));
