@@ -1,0 +1,1 @@
+import{k as e}from"./index-CfbtD-qm.js";function t(){return e()}export{t};
