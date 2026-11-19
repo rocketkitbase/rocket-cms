@@ -141,8 +141,10 @@ export function installAutomaticEditing(options = {}) {
     const height = slide.clientHeight;
     if (!image?.naturalWidth || !image.naturalHeight || !width || !height) return null;
     const style = getComputedStyle(image);
-    if (style.objectFit !== "cover") return { left: 0, top: 0, width, height };
-    const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+    const fit = style.objectFit;
+    if (fit !== "cover" && fit !== "contain") return { left: 0, top: 0, width, height };
+    const ratios = [width / image.naturalWidth, height / image.naturalHeight];
+    const scale = fit === "contain" ? Math.min(...ratios) : Math.max(...ratios);
     const imageWidth = image.naturalWidth * scale;
     const imageHeight = image.naturalHeight * scale;
     const [x, y] = style.objectPosition.split(" ").map(parseFloat);
@@ -150,7 +152,8 @@ export function installAutomaticEditing(options = {}) {
       left: (width - imageWidth) * (Number.isFinite(x) ? x : 50) / 100,
       top: (height - imageHeight) * (Number.isFinite(y) ? y : 50) / 100,
       width: imageWidth,
-      height: imageHeight
+      height: imageHeight,
+      fit
     };
   }
   function positionSlideButton(link, position) {
@@ -164,6 +167,15 @@ export function installAutomaticEditing(options = {}) {
       const anchorY = bounds.height * (Number.isFinite(position.y) ? clampPosition(position.y) : 76) / 100;
       const insetX = Math.min(link.offsetWidth / 2 + 12, slide.clientWidth / 2);
       const insetY = Math.min(link.offsetHeight / 2 + 12, slide.clientHeight / 2);
+      if (bounds.fit === "contain") {
+        link.style.left = Math.max(insetX, Math.min(slide.clientWidth - insetX, bounds.left + anchorX)) + "px";
+        const artworkBottom = bounds.top + bounds.height;
+        const halfHeight = link.offsetHeight / 2;
+        const center = bounds.top + anchorY;
+        const y = center + halfHeight > artworkBottom ? artworkBottom + halfHeight : center;
+        link.style.top = Math.min(slide.clientHeight - insetY, y) + "px";
+        return;
+      }
       const x = fitButtonAxis(bounds.left, bounds.width, slide.clientWidth, anchorX, insetX);
       const y = fitButtonAxis(bounds.top, bounds.height, slide.clientHeight, anchorY, insetY);
       originalSlideImageStyles.set(image, {
@@ -493,6 +505,9 @@ export function installAutomaticEditing(options = {}) {
   function start() {
     if (started) return;
     started = true;
+    const mobileBannerStyle = document.createElement("style");
+    mobileBannerStyle.textContent = '@media(max-width:720px){.home-carousel__slide[data-rocket-slide] img{object-fit:contain!important;object-position:center!important;transform:none!important}}';
+    document.head.appendChild(mobileBannerStyle);
     if (options.preview) {
       const style = document.createElement("style");
       style.textContent = 'html[data-rcms-auto-editing="true"] [data-rcms-region^="__rcms_auto__"]:hover{outline:2px solid #ef4444!important;outline-offset:2px;cursor:pointer!important}';
