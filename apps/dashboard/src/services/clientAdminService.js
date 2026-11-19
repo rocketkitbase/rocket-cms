@@ -51,10 +51,12 @@ export const clientAdminService = {
 
       const now = serverTimestamp();
       const previousUid = website.clientAdmin?.uid;
+      const clientId = String(name || "").trim() || `${website.name} Admin`;
       const profile = {
         uid: createdUser.uid,
         email: createdUser.email,
-        name: String(name || "").trim() || `${website.name} Admin`,
+        name: clientId,
+        clientId,
         role: CLIENT_ADMIN_ROLE,
         company: website.name,
         companyId: website.id,
@@ -69,6 +71,7 @@ export const clientAdminService = {
         uid: createdUser.uid,
         email: createdUser.email,
         name: profile.name,
+        clientId: profile.clientId,
         status: "active",
         createdAt: now,
         updatedAt: now
@@ -107,6 +110,7 @@ export const clientAdminService = {
         uid: profile.uid,
         email: profile.email,
         name: profile.name,
+        clientId: profile.clientId,
         websiteId: website.id
       };
     } catch (error) {

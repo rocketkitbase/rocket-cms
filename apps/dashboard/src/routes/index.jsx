@@ -75,7 +75,7 @@ export const routesConfig = [
   },
   // Authentication Routes
   {
-    path: "/login",
+    path: "/webport",
     errorElement: <RouteErrorBoundary />,
     element: (
       <PublicRoute>
@@ -83,6 +83,7 @@ export const routesConfig = [
       </PublicRoute>
     )
   },
+  { path: "/login", element: <Navigate to="/webport" replace /> },
 
   // Full-screen connected-site visual builder
   {

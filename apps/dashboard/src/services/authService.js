@@ -11,7 +11,7 @@ import {
 import { ref, get, set, update, serverTimestamp, onValue } from "firebase/database";
 
 export const authService = {
-  async login(email, password, { superAdminOnly = false } = {}) {
+  async login(email, password, { superAdminOnly = false, clientId } = {}) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const profile = await this.getUserProfile(userCredential.user.uid);
@@ -31,6 +31,14 @@ export const authService = {
         await signOut(auth);
         const error = new Error("Use a super administrator account to sign in here.");
         error.code = "auth/admin-required";
+        throw error;
+      }
+      if (clientId !== undefined && (isSuperAdminUser(profile)
+        || !clientId.trim()
+        || clientId.trim().toLowerCase() !== String(profile.clientId || profile.name || "").trim().toLowerCase())) {
+        await signOut(auth);
+        const error = new Error("Check your Client ID or use the portal for your account.");
+        error.code = "auth/client-id-mismatch";
         throw error;
       }
       return { success: true, user: userCredential.user, profile };

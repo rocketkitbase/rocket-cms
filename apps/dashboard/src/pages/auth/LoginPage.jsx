@@ -11,6 +11,7 @@ import { Card } from "../../components/ui/Card";
 import { motion } from "framer-motion";
 
 const loginSchema = zod.object({
+  clientId: zod.string().optional(),
   email: zod.string().min(1, "Email is required").email("Invalid email format"),
   password: zod.string().min(1, "Password is required"),
   rememberMe: zod.boolean().optional()
@@ -23,8 +24,11 @@ export function LoginPage({ superAdminOnly = false }) {
   const [loading, setLoading] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolver(superAdminOnly ? loginSchema : loginSchema.extend({
+      clientId: zod.string().trim().min(1, "Client ID is required")
+    })),
     defaultValues: {
+      clientId: "",
       email: superAdminOnly ? "admin@rocketkit.in" : "",
       password: "",
       rememberMe: false
@@ -35,7 +39,10 @@ export function LoginPage({ superAdminOnly = false }) {
     setLoading(true);
     setErrorMsg("");
     try {
-      const result = await login(data.email, data.password, { superAdminOnly });
+      const result = await login(data.email, data.password, {
+        superAdminOnly,
+        clientId: superAdminOnly ? undefined : data.clientId
+      });
       if (result.success) {
         toast.success("Welcome back! Redirecting...");
       } else {
@@ -64,7 +71,7 @@ export function LoginPage({ superAdminOnly = false }) {
             alt="Rocket Kit - Content Infrastructure for React"
             className="mb-4 w-full max-w-xs rounded-2xl bg-white shadow-xl shadow-slate-950/10"
           />
-          <p className="text-sm text-admin-secondary mt-1">{superAdminOnly ? "Super administrator access" : "Rocket Kit account access"}</p>
+          <p className="text-sm text-admin-secondary mt-1">{superAdminOnly ? "Super administrator access" : "Client administrator access"}</p>
         </div>
 
         <Card className="shadow-xl">
@@ -80,7 +87,11 @@ export function LoginPage({ superAdminOnly = false }) {
               </div>
             )}
 
-            {/* Email input */}
+            {!superAdminOnly && (
+              <Input label="Client ID" placeholder="Enter your Client ID" autoComplete="off"
+                error={errors.clientId?.message} {...register("clientId")} />
+            )}
+
             <Input
               label="Email"
               type="email"

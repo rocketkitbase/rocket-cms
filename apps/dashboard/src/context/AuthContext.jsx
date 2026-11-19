@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, { createContext, useState, useContext, useEffect, useRef } from "react";
 import authService from "../services/authService";
 import clientAdminService from "../services/clientAdminService";
 import sourceCredentialService from "../services/sourceCredentialService";
@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const loginPending = useRef(false);
 
   useEffect(() => {
     // Listen to Firebase Auth and the assigned profile. Watching the profile
@@ -26,6 +27,10 @@ export function AuthProvider({ children }) {
       setLoading(true);
       if (firebaseUser) {
         unsubscribeProfile = authService.onUserProfileChange(firebaseUser.uid, async (profile, error) => {
+          if (loginPending.current) {
+            setLoading(false);
+            return;
+          }
           if (error) {
             console.error("Failed to load user profile", error);
             setUser(null);
@@ -58,6 +63,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password, options) => {
+    loginPending.current = true;
     try {
       const result = await authService.login(email.trim().toLowerCase(), password, options);
       setUser(result.profile);
@@ -75,25 +81,27 @@ export function AuthProvider({ children }) {
         message = "Network error. Please check your connection.";
       } else if (error.code === "auth/user-disabled") {
         message = error.message || "This account has been disabled.";
-      } else if (["auth/profile-not-found", "auth/admin-required"].includes(error.code)) {
+      } else if (["auth/profile-not-found", "auth/admin-required", "auth/client-id-mismatch"].includes(error.code)) {
         message = error.message;
       } else if (error.code === "auth/configuration-not-found") {
         message = "Authentication provider not enabled. Contact administrator.";
       }
       return { success: false, message };
+    } finally {
+      loginPending.current = false;
     }
   };
 
   const logout = async () => {
+    const portal = isSuperAdminUser(user) ? "/admiral" : "/webport";
     sessionStorage.removeItem("reactcms_local_session");
     sourceCredentialService.clearHostingSession();
     try {
       await authService.logout();
+      window.location.replace(portal);
     } catch (e) {
       console.error("Logout failed", e);
     }
-    setUser(null);
-    setIsAuthenticated(false);
   };
 
   const updateProfile = async (name, phone, company) => {

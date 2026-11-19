@@ -21,7 +21,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
 
   useEffect(() => {
     if (!isOpen || !website) return;
-    setName(website.ownerName || `${website.name} Admin`);
+    setName(website.clientAdmin?.clientId || website.clientAdmin?.name || website.ownerName || `${website.name} Admin`);
     setEmail(generateClientAdminEmail(website, Boolean(website.clientAdmin?.uid)));
     setPassword(generateSecurePassword());
     setError("");
@@ -34,7 +34,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
     setError("");
 
     if (!name.trim()) {
-      setError("Enter a name for the client administrator.");
+      setError("Enter a Client ID.");
       return;
     }
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
@@ -64,7 +64,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
   const handleCopy = async () => {
     if (!createdAccount) return;
     await navigator.clipboard.writeText(
-      `ReactCMS client login for ${website.name}\nEmail: ${createdAccount.email}\nPassword: ${createdAccount.password}\nLogin: ${window.location.origin}/login`
+      `Client admin access\n${window.location.origin}/webport\nClient ID: ${createdAccount.clientId || createdAccount.name}\nEmail: ${createdAccount.email}\nPassword: ${createdAccount.password}`
     );
     setCopied(true);
     toast.success("Login details copied");
@@ -100,6 +100,10 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
 
           <div className="space-y-3 rounded-lg border border-admin-border bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
             <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-admin-secondary">Client ID</span>
+              <code className="block select-all break-all text-sm text-admin-text">{createdAccount.clientId || createdAccount.name}</code>
+            </div>
+            <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-admin-secondary">Website</span>
               <p className="text-sm font-semibold text-admin-text">{website.name}</p>
             </div>
@@ -113,7 +117,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
             </div>
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-admin-secondary">Login URL</span>
-              <code className="block select-all break-all text-sm text-admin-text">{window.location.origin}/login</code>
+              <code className="block select-all break-all text-sm text-admin-text">{window.location.origin}/webport</code>
             </div>
           </div>
 
@@ -151,10 +155,10 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
           )}
 
           <Input
-            label="Client Name"
+            label="Client ID"
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Website administrator"
+            placeholder="Example: MTAdmin"
             autoComplete="off"
           />
           <Input
@@ -162,7 +166,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            helperText="This is the username the client will enter on the ReactCMS login page."
+            helperText="The client uses this email with their Client ID to sign in."
             autoComplete="off"
           />
           <div className="flex items-end gap-2">
