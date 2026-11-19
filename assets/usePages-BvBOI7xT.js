@@ -1,0 +1,1 @@
+import{k as e}from"./index-DV_hUYc1.js";function t(){return e()}export{t};

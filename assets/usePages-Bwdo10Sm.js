@@ -1,1 +1,0 @@
-import{k as e}from"./index-CRKQp9gA.js";function t(){return e()}export{t};
