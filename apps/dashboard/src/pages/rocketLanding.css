@@ -106,13 +106,13 @@
 .rk-final > div:first-of-type { flex: 1 1 17rem; }
 .rk-final .rk-outline { color: white; background: transparent; border-color: #cdd5ed; }
 .rk-footer { background: #0b1831; color: #e7efff; padding-block: 1.6rem 1rem; }
-.rk-footer img { width: min(185px,100%); border-radius: .55rem; margin-bottom: .45rem; }
+.rk-footer img { width: min(240px,100%); border-radius: .55rem; margin-bottom: .65rem; background: white; padding: .4rem; }
 .rk-footer-grid { display: grid; grid-template-columns: 1.25fr repeat(4,1fr); gap: 1.25rem; }
 .rk-footer h3 { margin-bottom: .55rem; }
 .rk-footer a, .rk-footer small { display: block; font-size: .9rem; color: #d7def0; }
 .rk-footer a:hover { text-decoration: underline; }
 .rk-rainhopes { display: block; color: #7ee5fb; font-size: 1.45rem; }
-.rk-footer-bottom { margin-top: 1.25rem; padding-top: .8rem; border-top: 1px solid #415271; display: flex; justify-content: space-between; flex-wrap: wrap; gap: .6rem; font-size: .85rem; }
+.rk-footer-bottom { margin-top: 1.25rem; padding: 1.15rem .5rem .25rem; border-top: 1px solid #415271; text-align: center; font-size: clamp(1.05rem, 1.4vw, 1.35rem); font-weight: 650; }
 .rk-in-view { animation: rk-enter .62s cubic-bezier(.2,.7,.3,1) both; }
 @keyframes rk-enter { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes rk-float { 0%,100% { transform: translateY(0) rotate(-6deg) rotateY(-10deg); } 50% { transform: translateY(-12px) rotate(-4deg) rotateY(-7deg); } }
