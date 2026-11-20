@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BarChart3, Blocks, Braces, Building2, CircleCheck, Code2, Gauge, Globe2, Image, KeyRound, Layers3, Maximize, Monitor, Rocket, Search, Sparkles, Target, Users, Zap } from "lucide-react";
 import "./rocketLanding.css";
 
@@ -59,8 +59,6 @@ const faq = [
   ["Does it support multiple languages?", "Rocket supports organising and editing localised content. Your site controls how those locales are presented."],
   ["Is there a free plan or trial?", "Contact the Rocket Kit team for current access and pricing options."]
 ];
-const mail = (subject) => `mailto:admin@rocketkit.in?subject=${encodeURIComponent(subject)}`;
-
 function DashboardPreview() {
   return (
     <div className="rk-dashboard" aria-label="Illustrative Rocket Kit dashboard">
@@ -80,6 +78,33 @@ function DashboardPreview() {
 
 export default function RocketLanding() {
   const page = useRef(null);
+  const [intent, setIntent] = useState("contact");
+  const [sending, setSending] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  async function sendContact(event) {
+    event.preventDefault();
+    if (sending) return;
+    const form = event.currentTarget;
+    setSending(true);
+    setFeedback(null);
+    try {
+      const response = await fetch("/api/rocket-contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(new FormData(form)))
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Your message could not be sent.");
+      form.reset();
+      setFeedback({ text: "Message sent. The Rocket Kit team will reply by email." });
+    } catch (error) {
+      setFeedback({ error: true, text: error instanceof SyntaxError ? "The contact form is temporarily unavailable." : error.message });
+    } finally {
+      setSending(false);
+    }
+  }
+
   useEffect(() => {
     if (!window.IntersectionObserver || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const observer = new IntersectionObserver((entries) => {
@@ -90,7 +115,7 @@ export default function RocketLanding() {
         }
       });
     }, { threshold: 0.12 });
-    page.current?.querySelectorAll("[data-reveal]").forEach(node => observer.observe(node));
+    page.current?.querySelectorAll("[data-reveal], .rk-fundamentals article, .rk-features article, .rk-teams article, .rk-benefits article, .rk-steps li, .rk-faq details").forEach(node => observer.observe(node));
     return () => observer.disconnect();
   }, []);
 
@@ -99,7 +124,7 @@ export default function RocketLanding() {
       <header className="rk-nav rk-shell">
         <a href="#top" aria-label="Rocket Kit homepage"><img src="/logo.png" alt="Rocket Kit CMS" /></a>
         <nav aria-label="Main navigation"><a href="#product">Product</a><a href="#features">Features</a><a href="#solutions">Solutions</a><a href="#faq">Resources</a><a href="#pricing">Pricing</a></nav>
-        <div className="rk-actions"><a className="rk-button rk-outline" href={mail("Rocket Kit demo")}>Book a Demo</a><a className="rk-button" href="#start">Get Started</a></div>
+        <div className="rk-actions"><a className="rk-button rk-outline" href="#contact" onClick={() => setIntent("demo")}>Book a Demo</a><a className="rk-button" href="#start">Get Started</a></div>
       </header>
 
       <main>
@@ -145,7 +170,7 @@ export default function RocketLanding() {
             </div>
           </section>
           <section className="rk-split" id="start" data-reveal>
-            <div><h2>How to Get Started<br />with <em>Rocket</em></h2><a className="rk-text-link" href={mail("Rocket Kit access")}>Request access</a></div>
+            <div><h2>How to Get Started<br />with <em>Rocket</em></h2><a className="rk-text-link" href="#contact" onClick={() => setIntent("access")}>Request access</a></div>
             <ol className="rk-steps">{steps.map(([title, copy, Icon]) => <li key={title}><Icon size={24} /><h3>{title}</h3><p>{copy}</p></li>)}</ol>
           </section>
           <section className="rk-split rk-faq-section" id="faq" data-reveal>
@@ -155,7 +180,27 @@ export default function RocketLanding() {
           <section className="rk-final" id="pricing" data-reveal>
             <Rocket size={42} aria-hidden="true" />
             <div><h2>Experience <em>Rocket Kit CMS</em></h2><p>Talk to us about access, pricing or a walkthrough.</p></div>
-            <div className="rk-actions"><a className="rk-button" href={mail("Rocket Kit access and pricing")}>Request Access</a><a className="rk-button rk-outline" href={mail("Rocket Kit demo")}>Book a Demo</a></div>
+            <div className="rk-actions"><a className="rk-button" href="#contact" onClick={() => setIntent("access")}>Request Access</a><a className="rk-button rk-outline" href="#contact" onClick={() => setIntent("demo")}>Book a Demo</a></div>
+          </section>
+          <section className="rk-contact" id="contact" data-reveal>
+            <div><h2>Talk to <em>Rocket Kit</em></h2><p>Request access, book a walkthrough, or tell us what you’re building.</p></div>
+            <form onSubmit={sendContact}>
+              <div className="rk-contact-row">
+                <label>Name<input name="name" autoComplete="name" required maxLength={120} /></label>
+                <label>Email<input name="email" type="email" autoComplete="email" required maxLength={254} /></label>
+              </div>
+              <label>How can we help?
+                <select name="intent" value={intent} onChange={(event) => setIntent(event.target.value)}>
+                  <option value="contact">General enquiry</option>
+                  <option value="access">Request access</option>
+                  <option value="demo">Book a demo</option>
+                </select>
+              </label>
+              <label>Message<textarea name="message" rows={5} required maxLength={4000} /></label>
+              <label hidden>Website<input name="website" tabIndex={-1} autoComplete="off" /></label>
+              <button type="submit" className="rk-button" disabled={sending}>{sending ? "Sending…" : "Send message"}</button>
+              {feedback && <p className={feedback.error ? "rk-form-error" : "rk-form-success"} role={feedback.error ? "alert" : "status"}>{feedback.text}</p>}
+            </form>
           </section>
         </div>
       </main>
@@ -166,9 +211,9 @@ export default function RocketLanding() {
             <div><h3>Product</h3><a href="#product">Overview</a><a href="#features">Features</a><a href="#pricing">Pricing</a></div>
             <div><h3>Solutions</h3><a href="#solutions">Developers &amp; Agencies</a><a href="#solutions">Businesses &amp; Enterprises</a></div>
             <div><h3>Resources</h3><a href="#start">Getting Started</a><a href="#faq">FAQ</a></div>
-            <div><h3>Company</h3><a href={mail("Rocket Kit enquiry")}>Contact</a><small>A product by</small><strong className="rk-rainhopes">Rainhopes</strong></div>
+            <div><h3>Company</h3><small>A product by</small><strong className="rk-rainhopes">Rainhopes</strong></div>
           </div>
-          <div className="rk-footer-bottom"><span>© {new Date().getFullYear()} Rocket Kit CMS</span><a href="/admiral">Admin sign-in</a></div>
+          <div className="rk-footer-bottom"><span>© {new Date().getFullYear()} Rocket Kit CMS</span></div>
         </div>
       </footer>
     </div>
