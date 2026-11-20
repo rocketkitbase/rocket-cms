@@ -1,1 +1,0 @@
-import{k as e}from"./index-yFEcsF6o.js";function t(){return e()}export{t};
