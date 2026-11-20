@@ -11,7 +11,7 @@ import {
 import { ref, get, set, update, serverTimestamp, onValue } from "firebase/database";
 
 export const authService = {
-  async login(email, password, { superAdminOnly = false, clientId } = {}) {
+  async login(email, password, { superAdminOnly = false, clientId, customerId } = {}) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const profile = await this.getUserProfile(userCredential.user.uid);
@@ -35,9 +35,10 @@ export const authService = {
       }
       if (clientId !== undefined && (isSuperAdminUser(profile)
         || !clientId.trim()
+        || (customerId && customerId !== profile.customerId)
         || clientId.trim().toLowerCase() !== String(profile.clientId || profile.name || "").trim().toLowerCase())) {
         await signOut(auth);
-        const error = new Error("Check your Client ID or use the portal for your account.");
+        const error = new Error("Check your username or use the portal for your account.");
         error.code = "auth/client-id-mismatch";
         throw error;
       }

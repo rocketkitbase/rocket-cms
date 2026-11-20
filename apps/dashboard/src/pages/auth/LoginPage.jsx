@@ -9,6 +9,8 @@ import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { motion } from "framer-motion";
+import { Navigate, useParams } from "react-router-dom";
+import { customerIdPattern } from "../../services/customerIdService";
 
 const loginSchema = zod.object({
   clientId: zod.string().optional(),
@@ -18,6 +20,8 @@ const loginSchema = zod.object({
 });
 
 export function LoginPage({ superAdminOnly = false }) {
+  const { portal } = useParams();
+  const customerId = portal?.startsWith("webport-") ? portal.slice(8).toLowerCase() : undefined;
   const { login } = useAuth();
   const toast = useToast();
   const [errorMsg, setErrorMsg] = useState("");
@@ -25,7 +29,7 @@ export function LoginPage({ superAdminOnly = false }) {
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(superAdminOnly ? loginSchema : loginSchema.extend({
-      clientId: zod.string().trim().min(1, "Client ID is required")
+      clientId: zod.string().trim().min(1, "Username is required")
     })),
     defaultValues: {
       clientId: "",
@@ -41,7 +45,8 @@ export function LoginPage({ superAdminOnly = false }) {
     try {
       const result = await login(data.email, data.password, {
         superAdminOnly,
-        clientId: superAdminOnly ? undefined : data.clientId
+        clientId: superAdminOnly ? undefined : data.clientId,
+        customerId
       });
       if (result.success) {
         toast.success("Welcome back! Redirecting...");
@@ -55,6 +60,8 @@ export function LoginPage({ superAdminOnly = false }) {
       setLoading(false);
     }
   };
+
+  if (portal && !customerIdPattern.test(customerId || "")) return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-admin-bg dark:bg-slate-900 p-6 transition-colors duration-300">
@@ -88,7 +95,7 @@ export function LoginPage({ superAdminOnly = false }) {
             )}
 
             {!superAdminOnly && (
-              <Input label="Client ID" placeholder="Enter your Client ID" autoComplete="off"
+              <Input label="Username" placeholder="Enter your username" autoComplete="username"
                 error={errors.clientId?.message} {...register("clientId")} />
             )}
 

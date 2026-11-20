@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from "react";
 import authService from "../services/authService";
+import { clientPortal } from "../services/customerIdService";
 import clientAdminService from "../services/clientAdminService";
 import sourceCredentialService from "../services/sourceCredentialService";
 import {
@@ -93,7 +94,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    const portal = isSuperAdminUser(user) ? "/admiral" : "/webport";
+    const portal = isSuperAdminUser(user) ? "/admiral" : clientPortal(user?.customerId);
     sessionStorage.removeItem("reactcms_local_session");
     sourceCredentialService.clearHostingSession();
     try {

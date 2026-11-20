@@ -8,6 +8,7 @@ import {
 } from "../utils/generators";
 import activityLogService from "./activityLogService";
 import { websiteSyncService } from "./websiteSyncService";
+import { reserveCustomerNumber } from "./customerIdService";
 
 async function hashSecretKey(key) {
   const encoder = new TextEncoder();
@@ -72,8 +73,10 @@ export const websiteService = {
       const rawSecretKey = usesSdk ? generateSecretKey() : "";
       const secretKeyHash = usesSdk ? await hashSecretKey(rawSecretKey) : "";
       const verificationCode = generateVerificationCode();
+      const customerNumber = await reserveCustomerNumber(newId);
 
       const websiteData = {
+        customerNumber,
         websiteId,
         name: data.name,
         domain: data.domain,

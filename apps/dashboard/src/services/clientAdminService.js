@@ -1,4 +1,5 @@
 import { deleteApp, getApp, getApps, initializeApp } from "firebase/app";
+import { formatCustomerId, reserveCustomerNumber } from "./customerIdService";
 import {
   createUserWithEmailAndPassword,
   deleteUser,
@@ -34,8 +35,12 @@ function clientAdminError(error) {
 }
 
 export const clientAdminService = {
-  async create({ website, email, password, name, actorUid }) {
+  async create({ website, email, password, name, clientShort, actorUid }) {
     if (!website?.id) throw new Error("Select a website before creating its client login.");
+    const short = String(clientShort || "").trim().toLowerCase();
+    if (!/^[a-z0-9]+$/.test(short)) throw new Error("Enter a client short code using letters and numbers.");
+    const customerNumber = website.customerNumber || await reserveCustomerNumber(website.id);
+    const customerId = formatCustomerId(customerNumber, short, website.createdAt);
 
     const provisioningApp = getProvisioningApp();
     const provisioningAuth = getAuth(provisioningApp);
@@ -57,6 +62,7 @@ export const clientAdminService = {
         email: createdUser.email,
         name: clientId,
         clientId,
+        customerId,
         role: CLIENT_ADMIN_ROLE,
         company: website.name,
         companyId: website.id,
@@ -72,13 +78,16 @@ export const clientAdminService = {
         email: createdUser.email,
         name: profile.name,
         clientId: profile.clientId,
+        customerId,
+        clientShort: short,
         status: "active",
         createdAt: now,
         updatedAt: now
       };
       const updates = {
         [`users/${createdUser.uid}`]: profile,
-        [`websites/${website.id}/clientAdmin`]: websiteClientAdmin
+        [`websites/${website.id}/clientAdmin`]: websiteClientAdmin,
+        [`websites/${website.id}/customerNumber`]: customerNumber
       };
 
       if (previousUid && previousUid !== createdUser.uid) {
@@ -111,6 +120,7 @@ export const clientAdminService = {
         email: profile.email,
         name: profile.name,
         clientId: profile.clientId,
+        customerId,
         websiteId: website.id
       };
     } catch (error) {

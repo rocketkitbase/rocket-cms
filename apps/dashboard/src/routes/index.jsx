@@ -84,6 +84,7 @@ export const routesConfig = [
     )
   },
   { path: "/login", element: <Navigate to="/webport" replace /> },
+  { path: "/:portal", element: <PublicRoute><LoginPage /></PublicRoute> },
 
   // Full-screen connected-site visual builder
   {

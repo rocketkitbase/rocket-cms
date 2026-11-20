@@ -6,11 +6,13 @@ import { generateClientAdminEmail, generateSecurePassword } from "../../utils/ge
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Modal } from "../ui/Modal";
+import { clientPortal, formatCustomerId } from "../../services/customerIdService";
 
 export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
   const { createClientAdmin, sendClientPasswordReset } = useAuth();
   const toast = useToast();
   const [name, setName] = useState("");
+  const [clientShort, setClientShort] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,6 +24,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
   useEffect(() => {
     if (!isOpen || !website) return;
     setName(website.clientAdmin?.clientId || website.clientAdmin?.name || website.ownerName || `${website.name} Admin`);
+    setClientShort(website.clientAdmin?.clientShort || "");
     setEmail(generateClientAdminEmail(website, Boolean(website.clientAdmin?.uid)));
     setPassword(generateSecurePassword());
     setError("");
@@ -34,7 +37,11 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
     setError("");
 
     if (!name.trim()) {
-      setError("Enter a Client ID.");
+      setError("Enter a username.");
+      return;
+    }
+    if (!/^[a-z0-9]+$/i.test(clientShort.trim())) {
+      setError("Enter a client short code using letters and numbers.");
       return;
     }
     if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
@@ -47,7 +54,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
     }
 
     setLoading(true);
-    const result = await createClientAdmin(website, { name, email, password });
+    const result = await createClientAdmin(website, { name, email, password, clientShort });
     setLoading(false);
 
     if (!result.success) {
@@ -64,7 +71,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
   const handleCopy = async () => {
     if (!createdAccount) return;
     await navigator.clipboard.writeText(
-      `Client admin access\n${window.location.origin}/webport\nClient ID: ${createdAccount.clientId || createdAccount.name}\nEmail: ${createdAccount.email}\nPassword: ${createdAccount.password}`
+      `Client admin access\n${window.location.origin}${clientPortal(createdAccount.customerId)}\nUsername: ${createdAccount.clientId || createdAccount.name}\nEmail: ${createdAccount.email}\nPassword: ${createdAccount.password}`
     );
     setCopied(true);
     toast.success("Login details copied");
@@ -100,7 +107,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
 
           <div className="space-y-3 rounded-lg border border-admin-border bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-admin-secondary">Client ID</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-admin-secondary">Username</span>
               <code className="block select-all break-all text-sm text-admin-text">{createdAccount.clientId || createdAccount.name}</code>
             </div>
             <div>
@@ -117,7 +124,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
             </div>
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-admin-secondary">Login URL</span>
-              <code className="block select-all break-all text-sm text-admin-text">{window.location.origin}/webport</code>
+              <code className="block select-all break-all text-sm text-admin-text">{window.location.origin}{clientPortal(createdAccount.customerId)}</code>
             </div>
           </div>
 
@@ -155,18 +162,28 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
           )}
 
           <Input
-            label="Client ID"
+            label="Username"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Example: MTAdmin"
             autoComplete="off"
           />
           <Input
+            label="Client short code"
+            value={clientShort}
+            onChange={(event) => setClientShort(event.target.value)}
+            placeholder="mtk"
+            autoComplete="off"
+            helperText={website.customerNumber
+              ? formatCustomerId(website.customerNumber, clientShort.trim().toLowerCase(), website.createdAt)
+              : "Rocket assigns the website number automatically."}
+          />
+          <Input
             label="Admin Email"
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            helperText="The client uses this email with their Client ID to sign in."
+            helperText="The client uses this email with their username to sign in."
             autoComplete="off"
           />
           <div className="flex items-end gap-2">
