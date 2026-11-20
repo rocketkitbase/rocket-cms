@@ -6,6 +6,7 @@
   background: #f9faff;
   font: 400 1rem/1.55 Inter, "Segoe UI", sans-serif;
   overflow: clip;
+  display: flow-root;
 }
 .rk-landing *, .rk-landing *::before, .rk-landing *::after { box-sizing: border-box; }
 .rk-landing h1, .rk-landing h2, .rk-landing h3, .rk-landing p { margin: 0; }
