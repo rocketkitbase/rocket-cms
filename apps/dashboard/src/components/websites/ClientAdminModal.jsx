@@ -7,12 +7,15 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Modal } from "../ui/Modal";
 import { clientPortal, formatCustomerId } from "../../services/customerIdService";
+import { clientAdminService } from "../../services/clientAdminService";
 
 export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
   const { createClientAdmin, sendClientPasswordReset } = useAuth();
   const toast = useToast();
   const [name, setName] = useState("");
   const [clientShort, setClientShort] = useState("");
+  const [assignedCustomerId, setAssignedCustomerId] = useState("");
+  const [assigningPortal, setAssigningPortal] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,6 +28,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
     if (!isOpen || !website) return;
     setName(website.clientAdmin?.clientId || website.clientAdmin?.name || website.ownerName || `${website.name} Admin`);
     setClientShort(website.clientAdmin?.clientShort || "");
+    setAssignedCustomerId("");
     setEmail(generateClientAdminEmail(website, Boolean(website.clientAdmin?.uid)));
     setPassword(generateSecurePassword());
     setError("");
@@ -89,7 +93,8 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
   };
 
   if (!website) return null;
-  const currentPortalUrl = `${window.location.origin}${clientPortal(website.clientAdmin?.customerId)}`;
+  const customerId = assignedCustomerId || website.clientAdmin?.customerId;
+  const currentPortalUrl = `${window.location.origin}${clientPortal(customerId)}`;
 
   return (
     <Modal
@@ -159,6 +164,27 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
                 }}>
                 Copy URL
               </Button>
+              {!customerId && (
+                <div className="mt-3 space-y-2">
+                  <p>This login uses the shared portal. Enter the client short code below to assign its own URL.</p>
+                  <Button type="button" size="xs" loading={assigningPortal} disabled={loading || !clientShort.trim()}
+                    onClick={async () => {
+                      setError("");
+                      setAssigningPortal(true);
+                      try {
+                        setAssignedCustomerId(await clientAdminService.assignPortal(website, clientShort));
+                        onCreated?.();
+                        toast.success("Customer portal URL assigned");
+                      } catch (portalError) {
+                        setError(portalError.message);
+                      } finally {
+                        setAssigningPortal(false);
+                      }
+                    }}>
+                    Assign Customer URL
+                  </Button>
+                </div>
+              )}
               <p className="mt-1">Creating a replacement disables the current profile and assigns the website to the new login.</p>
               <Button
                 type="button"

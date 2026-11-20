@@ -7,7 +7,7 @@ import {
   sendPasswordResetEmail,
   signOut
 } from "firebase/auth";
-import { ref, update, serverTimestamp } from "firebase/database";
+import { get, ref, update, serverTimestamp } from "firebase/database";
 import { database, firebaseConfig } from "../lib/firebase";
 import { CLIENT_ADMIN_ROLE } from "../utils/authAccess";
 import activityLogService from "./activityLogService";
@@ -35,6 +35,26 @@ function clientAdminError(error) {
 }
 
 export const clientAdminService = {
+  async assignPortal(website, clientShort) {
+    const short = clientShort.trim().toLowerCase();
+    if (!/^[a-z0-9]+$/.test(short)) throw new Error("Enter a client short code using letters and numbers.");
+    const snapshot = await get(ref(database, `websites/${website.id}`));
+    const current = snapshot.val();
+    const account = current?.clientAdmin;
+    if (!account?.uid || account.uid !== website.clientAdmin?.uid) {
+      throw new Error("The client login changed. Reopen this dialog and try again.");
+    }
+    if (account.customerId) return account.customerId;
+    const number = current.customerNumber || await reserveCustomerNumber(website.id);
+    const customerId = formatCustomerId(number, short, current.createdAt);
+    await update(ref(database), {
+      [`users/${account.uid}/customerId`]: customerId,
+      [`websites/${website.id}/customerNumber`]: number,
+      [`websites/${website.id}/clientAdmin/customerId`]: customerId,
+      [`websites/${website.id}/clientAdmin/clientShort`]: short
+    });
+    return customerId;
+  },
   async create({ website, email, password, name, clientShort, actorUid }) {
     if (!website?.id) throw new Error("Select a website before creating its client login.");
     const short = String(clientShort || "").trim().toLowerCase();
