@@ -88,6 +88,8 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
     }
   };
 
+  if (!website) return null;
+
   return (
     <Modal
       isOpen={isOpen}
