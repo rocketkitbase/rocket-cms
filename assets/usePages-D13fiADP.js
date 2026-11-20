@@ -1,0 +1,1 @@
+import{k as e}from"./index-bGN2unJ7.js";function t(){return e()}export{t};

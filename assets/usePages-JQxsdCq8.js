@@ -1,1 +1,0 @@
-import{k as e}from"./index-DdOLftzV.js";function t(){return e()}export{t};
