@@ -94,7 +94,8 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
 
   if (!website) return null;
   const customerId = assignedCustomerId || website.clientAdmin?.customerId;
-  const currentPortalUrl = `${window.location.origin}${clientPortal(customerId)}`;
+  const portalPath = clientPortal(customerId);
+  const currentPortalUrl = portalPath ? `${window.location.origin}${portalPath}` : "";
 
   return (
     <Modal
@@ -149,6 +150,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
           {website?.clientAdmin?.uid && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
               <p className="font-semibold">Current login: {website.clientAdmin.email}</p>
+              {currentPortalUrl && <>
               <p className="mt-2 font-semibold">Client login URL</p>
               <a className="block break-all underline" href={currentPortalUrl} target="_blank" rel="noreferrer">
                 {currentPortalUrl}
@@ -164,9 +166,10 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
                 }}>
                 Copy URL
               </Button>
-              {!customerId && (
+              </>}
+              {!currentPortalUrl && (
                 <div className="mt-3 space-y-2">
-                  <p>This login uses the shared portal. Enter the client short code below to assign its own URL.</p>
+                  <p>Enter the client short code below to assign this login a URL.</p>
                   <Button type="button" size="xs" loading={assigningPortal} disabled={loading || !clientShort.trim()}
                     onClick={async () => {
                       setError("");

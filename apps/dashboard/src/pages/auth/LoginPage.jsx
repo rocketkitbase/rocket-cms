@@ -9,8 +9,7 @@ import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { motion } from "framer-motion";
-import { Navigate, useParams } from "react-router-dom";
-import { customerIdPattern } from "../../services/customerIdService";
+import { useParams } from "react-router-dom";
 
 const loginSchema = zod.object({
   clientId: zod.string().optional(),
@@ -60,8 +59,6 @@ export function LoginPage({ superAdminOnly = false }) {
       setLoading(false);
     }
   };
-
-  if (portal && !customerIdPattern.test(customerId || "")) return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-admin-bg dark:bg-slate-900 p-6 transition-colors duration-300">

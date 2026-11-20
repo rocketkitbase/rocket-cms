@@ -4,7 +4,7 @@ import { database } from "../lib/firebase";
 export const customerIdPattern = /^rkb2[a-z0-9]{2}\d{4,}-[a-z0-9]+$/;
 
 export function clientPortal(customerId) {
-  return customerIdPattern.test(customerId || "") ? `/webport-${customerId}` : "/webport";
+  return customerIdPattern.test(customerId || "") ? `/webport-${customerId}` : null;
 }
 
 export async function reserveCustomerNumber(websiteId) {

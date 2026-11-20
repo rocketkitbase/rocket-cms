@@ -94,7 +94,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    const portal = isSuperAdminUser(user) ? "/admiral" : clientPortal(user?.customerId);
+    const portal = isSuperAdminUser(user) ? "/admiral" : clientPortal(user?.customerId) || "/404";
     sessionStorage.removeItem("reactcms_local_session");
     sourceCredentialService.clearHostingSession();
     try {

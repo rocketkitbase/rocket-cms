@@ -1,5 +1,7 @@
 import React, { Suspense, lazy } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
+import NotFoundPage from "../pages/NotFoundPage";
+import { customerIdPattern } from "../services/customerIdService";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
 import SuperAdminRoute from "./SuperAdminRoute";
@@ -67,24 +69,21 @@ const lazyLoad = (Component) => (
   </Suspense>
 );
 
+function ClientPortalRoute() {
+  const { portal } = useParams();
+  if (!portal?.startsWith("webport-") || !customerIdPattern.test(portal.slice(8))) {
+    return <NotFoundPage />;
+  }
+  return <PublicRoute><LoginPage /></PublicRoute>;
+}
+
 export const routesConfig = [
   {
     path: "/admiral",
     errorElement: <RouteErrorBoundary />,
     element: <PublicRoute superAdminOnly><LoginPage superAdminOnly /></PublicRoute>
   },
-  // Authentication Routes
-  {
-    path: "/webport",
-    errorElement: <RouteErrorBoundary />,
-    element: (
-      <PublicRoute>
-        <LoginPage />
-      </PublicRoute>
-    )
-  },
-  { path: "/login", element: <Navigate to="/webport" replace /> },
-  { path: "/:portal", element: <PublicRoute><LoginPage /></PublicRoute> },
+  { path: "/:portal", element: <ClientPortalRoute /> },
 
   // Full-screen connected-site visual builder
   {
@@ -248,7 +247,7 @@ export const routesConfig = [
   // Fallback redirect
   {
     path: "*",
-    element: <Navigate to="/" replace />
+    element: <NotFoundPage />
   }
 ];
 
