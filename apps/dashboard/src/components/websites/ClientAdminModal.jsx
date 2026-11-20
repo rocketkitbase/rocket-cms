@@ -89,6 +89,7 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
   };
 
   if (!website) return null;
+  const currentPortalUrl = `${window.location.origin}${clientPortal(website.clientAdmin?.customerId)}`;
 
   return (
     <Modal
@@ -143,6 +144,21 @@ export function ClientAdminModal({ isOpen, onClose, website, onCreated }) {
           {website?.clientAdmin?.uid && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
               <p className="font-semibold">Current login: {website.clientAdmin.email}</p>
+              <p className="mt-2 font-semibold">Client login URL</p>
+              <a className="block break-all underline" href={currentPortalUrl} target="_blank" rel="noreferrer">
+                {currentPortalUrl}
+              </a>
+              <Button type="button" variant="outline" size="xs" className="mt-3 mr-2"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(currentPortalUrl);
+                    toast.success("Client login URL copied");
+                  } catch {
+                    toast.error("Could not copy the URL. Select the link text to copy it.");
+                  }
+                }}>
+                Copy URL
+              </Button>
               <p className="mt-1">Creating a replacement disables the current profile and assigns the website to the new login.</p>
               <Button
                 type="button"
