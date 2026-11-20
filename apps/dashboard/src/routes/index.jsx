@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import NotFoundPage from "../pages/NotFoundPage";
+import RocketLanding from "../pages/RocketLanding";
 import { customerIdPattern } from "../services/customerIdService";
 import ProtectedRoute from "./ProtectedRoute";
 import PublicRoute from "./PublicRoute";
@@ -78,6 +79,7 @@ function ClientPortalRoute() {
 }
 
 export const routesConfig = [
+  { path: "/", element: <RocketLanding /> },
   {
     path: "/admiral",
     errorElement: <RouteErrorBoundary />,
@@ -108,10 +110,6 @@ export const routesConfig = [
       </ProtectedRoute>
     ),
     children: [
-      {
-        index: true,
-        element: <Navigate to="/dashboard" replace />
-      },
       {
         path: "dashboard",
         element: <DashboardPage />
