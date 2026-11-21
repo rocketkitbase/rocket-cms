@@ -1,0 +1,1 @@
+import{k as e}from"./index-CB8HM75T.js";function t(){return e()}export{t};
