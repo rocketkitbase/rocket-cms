@@ -364,6 +364,7 @@ function ConnectedSourceWorkspace({
   const isPreview = mode === "preview";
   const isGitHub = website?.connection?.provider === "github";
   const isSftp = website?.connection?.provider === "sftp";
+  const usesRuntimeDraft = visualOnly || isSftp || website?.connection?.provider === "cpanel";
   const iframeRef = useRef(null);
   const canvasViewportRef = useRef(null);
   const connectedDraftHydratedRef = useRef(false);
@@ -659,7 +660,7 @@ function ConnectedSourceWorkspace({
       .then((draftRegions) => {
         if (connectedDraftHydrationRunRef.current !== hydrationRun) return;
         let sourceOverrides = {};
-        if (!visualOnly) {
+        if (!usesRuntimeDraft) {
           try {
             sourceOverrides = JSON.parse(
               sessionStorage.getItem(sourcePreviewOverridesKey(websiteId, pageId)) || "{}"
@@ -670,7 +671,7 @@ function ConnectedSourceWorkspace({
         }
         const entries = Object.entries(draftRegions || {}).filter(([regionId, value]) => (
           value !== null && value !== undefined
-          && (visualOnly || regionId.startsWith("__rcms_auto__") || regionId === RUNTIME_ADDITIONS_REGION
+          && (usesRuntimeDraft || regionId.startsWith("__rcms_auto__") || regionId === RUNTIME_ADDITIONS_REGION
             || Object.prototype.hasOwnProperty.call(sourceOverrides, regionId))
         ));
         const draftValues = new Map(entries);
@@ -734,7 +735,7 @@ function ConnectedSourceWorkspace({
     runtimeWebsiteIdFallback,
     sendRuntimeMessage,
     updateConnectedSelection,
-    visualOnly,
+    usesRuntimeDraft,
     websiteId
   ]);
 
@@ -1071,7 +1072,7 @@ function ConnectedSourceWorkspace({
       }
 
       if (!isPreview && message.type === "rcms/v1/field-update") {
-        if (visualOnly && !connectedDraftHydratedRef.current) return;
+        if (usesRuntimeDraft && !connectedDraftHydratedRef.current) return;
         const payload = message.payload || {};
         if (!payload.regionId) return;
         if (payload.regionId === RUNTIME_ADDITIONS_REGION && isPageComponentTree(payload.value)) {
@@ -1119,7 +1120,7 @@ function ConnectedSourceWorkspace({
     saveCarouselSettings,
     sendRuntimeMessage,
     updateConnectedSelection,
-    visualOnly,
+    usesRuntimeDraft,
     websiteId
   ]);
 
@@ -1156,7 +1157,11 @@ function ConnectedSourceWorkspace({
   }, [frameLoading, frameVersion, livePageUrl, routeResolving]);
 
   const publishConnectedSource = async () => {
-    const result = await onPublish();
+    const result = await onPublish({
+      runtimeWebsiteId,
+      runtimeWebsiteIds: [runtimeWebsiteIdFallback],
+      runtimePageId: canvasRuntimePageId
+    });
     if (result?.verified && !result?.deploymentPending && !visualOnly) {
       setFrameLoading(true);
       setFrameVersion((current) => current + 1);
@@ -1890,7 +1895,7 @@ function ConnectedSourceWorkspace({
             <div className="flex gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
               <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
               <p className="text-[10px] leading-4 text-amber-200/70">
-                {visualError} Open Code to edit the component that owns it.
+                {visualError}
               </p>
             </div>
           )}
@@ -1899,7 +1904,9 @@ function ConnectedSourceWorkspace({
             <p className="text-[10px] leading-4 text-emerald-200/70">
               {visualOnly
                 ? "Text, colour, and size overrides are saved to this page draft. The connected website continues to supply its base theme, header, and footer."
-                : <>Supported changes update the connected source immediately. Use {isGitHub
+                : <>{usesRuntimeDraft
+                  ? "Inspector changes are saved to the page draft."
+                  : "Supported changes update the connected source immediately."} Use {isGitHub
                   ? " Update Git "
                   : isSftp
                     ? " Update StackCP "
@@ -3681,7 +3688,7 @@ export function VisualBuilderPage() {
       );
       sessionStorage.removeItem(sourceDraftKey(websiteId, pageId));
       setSourceSaveStatus("saved");
-      toast.success("Source file drafts saved in this browser session.");
+      toast.success("Page draft saved.");
       return true;
     } catch (error) {
       setSourceSaveStatus("error");
@@ -3692,7 +3699,7 @@ export function VisualBuilderPage() {
     }
   }, [pageId, toast, websiteId]);
 
-  const publishSource = async () => {
+  const publishSource = async (runtimeIdentity) => {
     if (!sourceWebsite) return;
     if (sourceWebsite.connection?.provider === "github") {
       const token = sourceWriteToken.trim()
@@ -3723,9 +3730,10 @@ export function VisualBuilderPage() {
       const automaticContent = [regionsRef.current, savedRegions].some((regions) =>
         Object.keys(regions || {}).some((id) => id.startsWith("__rcms_auto__"))
       );
+      const hasRuntimeDraft = directHostingProvider && Object.keys(savedRegions).length > 0;
       const publishPaths = dirtyPaths.length
         ? dirtyPaths
-        : directHostingProvider && selectedPage.sourceFile && !automaticContent
+        : directHostingProvider && selectedPage.sourceFile && !hasRuntimeDraft && !automaticContent
           ? [selectedPage.sourceFile]
           : [];
       const result = publishPaths.length
@@ -3747,10 +3755,18 @@ export function VisualBuilderPage() {
         ? "home"
         : String(selectedPage.route || selectedPage.slug || "home")
           .replace(/^\/+|\/+$/g, "") || "home";
-      const contentPublished = await contentSyncService.publishDraft(
-        websiteId,
-        pageSyncKey
-      );
+      const publishTargets = directHostingProvider
+        ? connectedDraftTargets({
+          ...runtimeIdentity,
+          websiteId,
+          pageKey,
+          pageAliases: [pageSyncKey, pageId, selectedPage.routeId, selectedPage.slug, selectedPage.route]
+        })
+        : [{ websiteId, pageKey: pageSyncKey }];
+      const publishedDrafts = await Promise.all(publishTargets.map((target) => (
+        contentSyncService.publishDraft(target.websiteId, target.pageKey)
+      )));
+      const contentPublished = publishedDrafts.some(Boolean);
       if (automaticContent) {
         const routing = await sourceProviderService.ensureSpaRouting(sourceWebsite);
         if (!routing.publishedStyleBridgeConfigured) throw new Error("Automatic editing content was saved, but the live hosting bridge could not be installed. Automatic publishing currently requires connected cPanel or SFTP hosting.");
@@ -4328,6 +4344,7 @@ export function VisualBuilderPage() {
   }, [websiteId]);
 
   if (isConnectedSourcePage) {
+    const directHosting = ["sftp", "cpanel"].includes(sourceWebsite?.connection?.provider);
     return (
       <>
       <ConnectedSourceWorkspace
@@ -4344,7 +4361,7 @@ export function VisualBuilderPage() {
         content={sourceContent}
         loading={pageLoading || sourceLoading}
         error={sourceError}
-        saveStatus={sourceSaveStatus}
+        saveStatus={directHosting && sourceSaveStatus === "saved" ? connectedSaveStatus : sourceSaveStatus}
         saving={sourceSaving}
         publishing={sourcePublishing}
         writeToken={sourceWriteToken}
@@ -4359,7 +4376,7 @@ export function VisualBuilderPage() {
           setSourceContent(content);
           setSourceSaveStatus("unsaved");
         }}
-        onVisualChange={patchSourceFromVisual}
+        onVisualChange={directHosting ? persistConnectedRegion : patchSourceFromVisual}
         getSourceFiles={getAISourceFiles}
         onSourceFilesChange={applyAISourceFiles}
         onThemeChange={saveAITheme}
