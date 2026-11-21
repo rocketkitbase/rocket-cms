@@ -266,7 +266,7 @@ function normalizedLiveOrigin(domain) {
   return url.origin;
 }
 
-export async function verifyExistingLiveRouting(website, { requireAutomaticEditing = false, requireCourseCopy = false, requireCarouselSlides = false, requireCarouselSettings = false, requireCarouselImagePosition = false } = {}) {
+export async function verifyExistingLiveRouting(website, { requireAutomaticEditing = false, requireCourseCopy = false, requireCarouselSlides = false, requireCarouselSettings = false, requireCarouselImagePosition = false, requireCarouselVisibility = false } = {}) {
   const origin = normalizedLiveOrigin(website?.domain);
   const verificationId = Date.now().toString(36);
   const nestedRoute = new URL(`/reactcms-route-check-${verificationId}`, origin);
@@ -321,6 +321,9 @@ export async function verifyExistingLiveRouting(website, { requireAutomaticEditi
   }
   if (requireCarouselSettings && !bootstrapSource.includes("__rcms_auto__carousel_settings")) {
     throw new Error("Run Set Up Live Publishing in Rocket to enable slide removal and banner buttons.");
+  }
+  if (requireCarouselVisibility && !bootstrapSource.includes("data-rocket-carousel-hidden")) {
+    throw new Error("Run Set Up Live Publishing in Rocket to enable banner visibility controls. Your draft is saved.");
   }
   if (requireCarouselImagePosition && !bootstrapSource.includes("coordinateSpace")) {
     throw new Error("Run Set Up Live Publishing in Rocket to update banner button positioning. Your draft is saved.");
@@ -772,6 +775,9 @@ async function start() {
     } catch (error) {
       console.warn("[ReactCMS] Deleted-route check failed; loading the website.", error);
     }
+  }
+  if (window.self === window.top && page?.regions?.__rcms_auto__carousel_settings?.all?.hidden === true) {
+    automaticEditing.applyRegions(page.regions);
   }
   await loadCourseTemplateApplication(new URL(applicationSource, location.origin).href, page?.courseTemplateRoute);
   if (window.self === window.top && document.querySelector("script[data-reactcms-route-bootstrap]")

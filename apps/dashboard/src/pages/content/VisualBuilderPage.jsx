@@ -399,6 +399,7 @@ function ConnectedSourceWorkspace({
   const carouselSlidesRef = useRef([]);
   const carouselSettingsRef = useRef({});
   const [carouselSettings, setCarouselSettings] = useState({});
+  const [carouselSlides, setCarouselSlides] = useState([]);
   const [newCarouselSlide, setNewCarouselSlide] = useState(null);
   const runtimeAdditionsRef = useRef(createRuntimeAdditionsTree(pageKey || pageId, locale));
   const clipboardKey = `reactcms_component_clipboard:${websiteId}`;
@@ -738,7 +739,7 @@ function ConnectedSourceWorkspace({
   ]);
 
   const saveCarouselSettings = useCallback((slideId, changes) => {
-    if (!/^(original-\d+|slide-[a-z0-9-]+)$/.test(slideId)) return;
+    if (!/^(all|original-\d+|slide-[a-z0-9-]+)$/.test(slideId)) return;
     const current = carouselSettingsRef.current;
     const next = { ...current, [slideId]: { ...current[slideId], ...changes } };
     const result = onVisualChange({
@@ -981,6 +982,12 @@ function ConnectedSourceWorkspace({
         return;
       }
 
+      if (!isPreview && message.type === "rcms/v1/carousel-slides" && Array.isArray(message.payload?.slides)) {
+        setCarouselSlides(message.payload.slides.filter((slide) =>
+          /^(original-\d+|slide-[a-z0-9-]+)$/.test(slide?.id) && typeof slide.label === "string"
+        ));
+        return;
+      }
       if (!isPreview && message.type === "rcms/v1/carousel-button-position") {
         const { slideId, x, y, coordinateSpace } = message.payload || {};
         const button = carouselSettingsRef.current[slideId]?.button;
@@ -1206,6 +1213,28 @@ function ConnectedSourceWorkspace({
       setVisualError(error.message || "Repeater content is not valid JSON.");
     }
   };
+
+  const renderCarouselVisibility = () => carouselSlides.length > 0 && (
+    <div className="m-4 grid gap-3 rounded-xl border border-slate-800 p-3 text-xs text-slate-300">
+      <h2 className="font-semibold text-white">Banner visibility</h2>
+      <Button size="xs" variant="secondary" onClick={() =>
+        saveCarouselSettings("all", { hidden: !carouselSettings.all?.hidden })
+      }>{carouselSettings.all?.hidden ? "Unhide all banners" : "Hide all banners"}</Button>
+      {carouselSlides.map(({ id, label }, index) => {
+        const hidden = carouselSettings[id]?.hidden === true;
+        return (
+          <div key={id} className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate" title={label}>{label || `Banner ${index + 1}`}</span>
+            <Button size="xs" variant="secondary" className="shrink-0"
+              aria-label={`${hidden ? "Unhide" : "Hide"} banner ${index + 1}`}
+              onClick={() => saveCarouselSettings(id, { hidden: !hidden })}>
+              {hidden ? "Unhide" : "Hide"}
+            </Button>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const renderVisualInspector = (embedded = false) => {
     if (!selectedRegion) {
@@ -2361,7 +2390,7 @@ function ConnectedSourceWorkspace({
                 getContext={getConnectedAIContext}
                 onApplyPlan={applyConnectedAIPlan}
                 onRollback={rollbackConnectedAIPlan}
-                renderInspector={() => renderVisualInspector(true)}
+                renderInspector={() => <>{renderCarouselVisibility()}{renderVisualInspector(true)}</>}
                 inspectorSelectionKey={selectedRegions.map((region) => region.regionId).join("|")}
                 inspectorSelectionVersion={connectedSelectionVersion}
                 selectedTarget={selectedRegion}
@@ -2428,7 +2457,7 @@ function ConnectedSourceWorkspace({
                 getContext={getConnectedAIContext}
                 onApplyPlan={applyConnectedAIPlan}
                 onRollback={rollbackConnectedAIPlan}
-                renderInspector={() => renderVisualInspector(true)}
+                renderInspector={() => <>{renderCarouselVisibility()}{renderVisualInspector(true)}</>}
                 inspectorSelectionKey={selectedRegions.map((region) => region.regionId).join("|")}
                 inspectorSelectionVersion={connectedSelectionVersion}
                 selectedTarget={selectedRegion}
@@ -4034,7 +4063,9 @@ export function VisualBuilderPage() {
             requireAutomaticEditing: Object.keys(publishRegions).some((id) => id.startsWith("__rcms_auto__")),
             requireCourseCopy: Boolean(selectedPage?.courseTemplateRoute),
             requireCarouselSlides: Boolean(publishRegions[CAROUSEL_SLIDES_REGION]?.length),
-            requireCarouselSettings: Boolean(publishRegions[CAROUSEL_SETTINGS_REGION])
+            requireCarouselSettings: Boolean(publishRegions[CAROUSEL_SETTINGS_REGION]),
+            requireCarouselVisibility: Object.values(publishRegions[CAROUSEL_SETTINGS_REGION] || {})
+              .some((setting) => typeof setting?.hidden === "boolean")
           });
         } catch (error) {
           throw new Error(`${error.message} A super administrator can update the hosting script from Rocket. Your draft is saved.`);
@@ -4107,6 +4138,11 @@ export function VisualBuilderPage() {
       // also committed to Git, so publish both parts of the same page draft.
       if (isSuperAdmin && selectedPage?.courseTemplateRoute) {
         await sourceProviderService.verifyExistingLiveRouting(sourceWebsite, { requireCourseCopy: true });
+      }
+      if (isSuperAdmin && sourceWebsite && pageKey === "home" && Object.values(
+        regionsRef.current[CAROUSEL_SETTINGS_REGION] || {}
+      ).some((setting) => typeof setting?.hidden === "boolean")) {
+        await sourceProviderService.verifyExistingLiveRouting(sourceWebsite, { requireCarouselVisibility: true });
       }
       if (sourceWebsite && pageKey === "home" && Object.values(
         regionsRef.current[CAROUSEL_SETTINGS_REGION] || {}

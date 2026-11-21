@@ -279,6 +279,7 @@ export function installAutomaticEditing(options = {}) {
     const index = carouselOrder.findIndex(({ id }) => id === activeSlideId);
     if (carouselOrder.length) showCarouselSlide(carouselOrder[(index + step + carouselOrder.length) % carouselOrder.length].id);
   }
+  let reportedCarouselSlides = "";
   function syncCarousel() {
     const carousel = document.querySelector(".home-carousel");
     const slides = carousel?.querySelector(".home-carousel__slides");
@@ -326,13 +327,26 @@ export function installAutomaticEditing(options = {}) {
       const image = slide.querySelector("img");
       const regionId = image?.getAttribute("data-rcms-region") || (image ? prefix + encodeURIComponent(selector(image)) : "");
       const override = values[regionId];
-      const hidden = settings[id]?.deleted === true || override?.src === "" || override === "";
+      const hidden = settings[id]?.hidden === true || settings[id]?.deleted === true || override?.src === "" || override === "";
       slide.hidden = hidden;
       dot.hidden = hidden;
       syncMobileSlideImage(slide, image, settings[id]?.mobileImage);
       syncSlideButton(slide, id, hidden ? null : settings[id]?.button);
       return !hidden;
     });
+    if (options.preview) {
+      const entries = order.filter(({ id }) => !settings[id]?.deleted).map(({ id, slide }) => ({
+        id,
+        label: slide.querySelector("img")?.alt || ""
+      }));
+      const signature = JSON.stringify(entries);
+      if (signature !== reportedCarouselSlides) {
+        reportedCarouselSlides = signature;
+        send("rcms/v1/carousel-slides", { slides: entries });
+      }
+    }
+    const carouselHidden = settings.all?.hidden === true || visibleOrder.length === 0;
+    carousel.toggleAttribute("data-rocket-carousel-hidden", carouselHidden);
     if (!wanted.size && !Object.keys(settings).length && visibleOrder.length === order.length && !editing) {
       carouselOrder.forEach(({ slide, dot }) => {
         slide.style.removeProperty("opacity");
@@ -357,8 +371,8 @@ export function installAutomaticEditing(options = {}) {
       dot.setAttribute("aria-label", "Show slide " + (index + 1));
     });
     showCarouselSlide(visibleOrder.some(({ id }) => id === activeSlideId) ? activeSlideId : visibleOrder[0]?.id);
-    if (editing && carouselTimer) { window.clearInterval(carouselTimer); carouselTimer = undefined; }
-    if (!editing && !carouselTimer && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    if ((editing || carouselHidden) && carouselTimer) { window.clearInterval(carouselTimer); carouselTimer = undefined; }
+    if (!editing && !carouselHidden && !carouselTimer && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       carouselTimer = window.setInterval(() => advanceCarousel(1), 4000);
     }
   }
@@ -468,7 +482,12 @@ export function installAutomaticEditing(options = {}) {
       schedule();
       return;
     }
-    if (message.type === "rcms/v1/enter-edit-mode") { editing = true; document.documentElement.setAttribute("data-rcms-auto-editing", "true"); schedule(); }
+    if (message.type === "rcms/v1/enter-edit-mode") {
+      editing = true;
+      reportedCarouselSlides = "";
+      document.documentElement.setAttribute("data-rcms-auto-editing", "true");
+      schedule();
+    }
     if (message.type === "rcms/v1/exit-edit-mode") { editing = false; document.documentElement.setAttribute("data-rcms-auto-editing", "false"); schedule(); }
     if (message.type === "rcms/v1/field-update" && message.payload?.regionId?.startsWith(prefix)) {
       values[message.payload.regionId] = message.payload.value;
@@ -561,6 +580,9 @@ export function installAutomaticEditing(options = {}) {
     const mobileBannerStyle = document.createElement("style");
     mobileBannerStyle.textContent = '@media(max-width:720px){.home-carousel__slide[data-rocket-slide]:not([data-rocket-mobile-image]) img{object-fit:contain!important;object-position:center!important;transform:none!important}.home-carousel__slide[data-rocket-mobile-image] img{object-fit:cover;transform:none!important}}';
     document.head.appendChild(mobileBannerStyle);
+    const carouselVisibilityStyle = document.createElement("style");
+    carouselVisibilityStyle.textContent = ".home-carousel[data-rocket-carousel-hidden],html[data-rocket-hide-all-banners] .home-carousel{display:none!important}";
+    document.head.appendChild(carouselVisibilityStyle);
     if (options.preview) {
       const style = document.createElement("style");
       style.textContent = 'html[data-rcms-auto-editing="true"] [data-rcms-region^="__rcms_auto__"]:hover{outline:2px solid #ef4444!important;outline-offset:2px;cursor:pointer!important}';
@@ -576,7 +598,12 @@ export function installAutomaticEditing(options = {}) {
   else start();
   return {
     applyCourses(nextCourses) { courses = nextCourses; syncCourseListings(); },
-    applyRegions(regions) { Object.keys(values).forEach((key) => delete values[key]); Object.assign(values, regions); discover(); },
+    applyRegions(regions) {
+      Object.keys(values).forEach((key) => delete values[key]);
+      Object.assign(values, regions);
+      document.documentElement.toggleAttribute("data-rocket-hide-all-banners", values[carouselSettingsRegion]?.all?.hidden === true);
+      discover();
+    },
     destroy() { observer?.disconnect(); window.clearTimeout(timer); window.clearInterval(carouselTimer); document.removeEventListener("DOMContentLoaded", start); }
   };
 }
