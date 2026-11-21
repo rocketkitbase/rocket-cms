@@ -1,0 +1,1 @@
+import{k as e}from"./index-DXccM0rA.js";function t(){return e()}export{t};
