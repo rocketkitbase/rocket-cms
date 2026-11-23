@@ -86,7 +86,7 @@ export function TopBar({ setMobileOpen }) {
           <input
             type="text"
             placeholder="Search websites, logs, API events..."
-            className="w-full text-sm pl-9 pr-4 py-1.5 bg-slate-50 border border-admin-border dark:bg-slate-800/40 dark:border-slate-800 rounded-lg outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-admin-text"
+            className="w-full text-sm pl-9 pr-4 py-1.5 bg-slate-50 border border-admin-border dark:bg-slate-800/40 dark:border-slate-800 rounded-lg outline-none focus:bg-admin-card focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-admin-text"
           />
         </div>
       </div>

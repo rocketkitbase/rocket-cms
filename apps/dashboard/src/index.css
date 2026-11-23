@@ -1,6 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+/* Match the theme class set by ThemeProvider. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 
@@ -70,6 +73,10 @@
 }
 
 @layer base {
+  :root {
+    color-scheme: light;
+  }
+
   body {
     @apply font-sans bg-admin-bg text-admin-text antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -94,6 +101,7 @@
 
 /* Dark mode custom overrides */
 .dark {
+  color-scheme: dark;
   --color-admin-bg: #050D1C;
   --color-admin-card: #091832;
   --color-admin-border: #293950;
