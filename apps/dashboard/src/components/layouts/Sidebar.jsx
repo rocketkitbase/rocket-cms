@@ -26,6 +26,15 @@ import { useAuth } from "../../hooks/useAuth";
 import { useWebsites } from "../../hooks/useWebsites";
 import { cn } from "../../utils/cn";
 
+const inactiveNavClass = "text-admin-secondary hover:text-admin-text hover:bg-slate-100 dark:hover:bg-slate-800";
+
+const groupNavClass = (isActive) =>
+  cn(
+    "flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium transition-colors rounded-lg cursor-pointer",
+    inactiveNavClass,
+    isActive && "text-admin-text bg-slate-100 dark:bg-slate-800/40"
+  );
+
 export function Sidebar({ mobileOpen, setMobileOpen }) {
   const { logout, isSuperAdmin } = useAuth();
   const { websites, selectedWebsite } = useWebsites();
@@ -49,16 +58,16 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
     cn(
       "flex items-center gap-3 px-4 py-2.5 text-sm font-medium transition-colors rounded-lg",
       isActive
-        ? "bg-primary text-white"
-        : "text-slate-400 hover:text-white hover:bg-slate-800"
+        ? "bg-blue-700 text-white dark:bg-primary"
+        : inactiveNavClass
     );
 
   const subNavItemClass = ({ isActive }) =>
     cn(
       "flex items-center gap-3 pl-11 pr-4 py-2 text-xs font-medium transition-colors rounded-lg",
       isActive
-        ? "text-white bg-slate-800 font-semibold"
-        : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+        ? "text-admin-text bg-slate-100 dark:bg-slate-800 font-semibold"
+        : inactiveNavClass
     );
 
   return (
@@ -74,16 +83,16 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
       {/* Sidebar Panel */}
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-40 flex flex-col w-64 border-r transition-transform lg:translate-x-0 bg-sidebar border-slate-800 text-slate-100",
+          "fixed top-0 bottom-0 left-0 z-40 flex flex-col w-64 border-r transition-[translate,background-color,border-color,color] lg:translate-x-0 bg-sidebar border-admin-border text-admin-text",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Rocket Kit brand */}
-        <div className="flex h-24 items-center justify-center border-b border-slate-800 px-5 py-2">
+        <div className="flex h-24 items-center justify-center border-b border-admin-border px-5 py-2">
           <img
             src="/logo.png"
             alt="Rocket Kit - Content Infrastructure for React"
-            className="max-h-20 w-full rounded-xl bg-white object-contain shadow-lg shadow-slate-950/30"
+            className="max-h-20 w-full rounded-xl bg-white object-contain dark:shadow-lg dark:shadow-slate-950/30"
           />
         </div>
 
@@ -99,10 +108,7 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
           <div>
             <button
               onClick={() => setWebsitesMenuOpen(!websitesMenuOpen)}
-              className={cn(
-                "flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium transition-colors rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer",
-                location.pathname.startsWith("/websites") ? "text-white bg-slate-800/40" : ""
-              )}
+              className={groupNavClass(location.pathname.startsWith("/websites"))}
             >
               <div className="flex items-center gap-3">
                 <Globe className="w-4 h-4 flex-shrink-0" />
@@ -163,10 +169,7 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
             <div>
               <button
                 onClick={() => setContentMenuOpen(!contentMenuOpen)}
-                className={cn(
-                  "flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium transition-colors rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer",
-                  location.pathname.startsWith(`/content/${activeWebsiteId}`) ? "text-white bg-slate-800/40" : ""
-                )}
+                className={groupNavClass(location.pathname.startsWith(`/content/${activeWebsiteId}`))}
               >
                 <div className="flex items-center gap-3">
                   <Database className="w-4 h-4 flex-shrink-0" />
@@ -241,7 +244,7 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
                     <span>Plugin Marketplace</span>
                   </NavLink>
 
-                  <div className="my-1 border-t border-slate-800/60 mx-4" />
+                  <div className="my-1 border-t border-admin-border mx-4" />
 
                   {/* CMS Settings */}
                   <NavLink to={`/content/${activeWebsiteId}/settings`} onClick={() => setMobileOpen(false)} className={subNavItemClass}>
@@ -267,10 +270,10 @@ export function Sidebar({ mobileOpen, setMobileOpen }) {
         </nav>
 
         {/* Logout Footer */}
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-4 border-t border-admin-border">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
+            className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-admin-danger hover:text-red-800 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4 flex-shrink-0" />
             <span>Logout</span>
